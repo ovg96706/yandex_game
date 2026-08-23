@@ -129,7 +129,7 @@ export class DailyScene extends Phaser.Scene {
       async () => {
         if (!canClaimDaily(saveManager.data)) return;
         const res = await adManager.showRewarded(this);
-        if (res.rewarded || res.mock) await this.claim(2);
+        if (res?.rewarded) await this.claim(2);
       },
       canClaim
         ? { color: 0x5a40a0, hoverColor: 0x7d5cbf, stroke: 0xb388ff, textSize: "16px" }

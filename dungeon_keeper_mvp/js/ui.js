@@ -20,6 +20,7 @@ export function createButton(scene, x, y, w, h, label, onClick, options = {}) {
   bg.on("pointerover", () => bg.setFillStyle(hoverColor));
   bg.on("pointerout", () => bg.setFillStyle(color));
   bg.on("pointerdown", () => {
+    audio.unlock();
     audio.click();
     scene.tweens.add({ targets: [bg, txt], scaleX: 0.95, scaleY: 0.95, yoyo: true, duration: 50 });
     onClick?.();

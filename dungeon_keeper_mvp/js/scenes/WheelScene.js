@@ -127,7 +127,7 @@ export class WheelScene extends Phaser.Scene {
     if (this.spinning) return;
     if (useAd) {
       const res = await adManager.showRewarded(this);
-      if (!res.rewarded && !res.mock) return;
+      if (!res?.rewarded) return;
     } else {
       if (!canSpinWheelFree(saveManager.data)) { audio.error(); return; }
       saveManager.data.wheelLastFreeSpinAt = Date.now();

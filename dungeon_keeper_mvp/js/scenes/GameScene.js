@@ -52,6 +52,8 @@ export class GameScene extends Phaser.Scene {
     // Флаг второго шанса и autoHeal-таймер
     this._usedSecondChanceThisRun = false;
     this._autoHealTimer = 0;
+    this._runSnapshot = null;
+    this._skipShutdownPersist = false;
 
     this._precomputeGrid();
     this.heroesByCol = Array.from({ length: GAME_CONFIG.grid.cols }, () => []);
@@ -72,7 +74,9 @@ export class GameScene extends Phaser.Scene {
     this.input.on("pointermove", this.onPointerMove, this);
     this.input.on("pointerup", this.onPointerUp, this);
 
-    this._visHandler = () => { if (document.hidden) this.persistProgress(); };
+    // A partially played wave is never persisted: otherwise rewards from killed enemies
+    // could be kept by leaving the scene and replaying the same wave.
+    this._visHandler = () => { if (document.hidden && (this.waveInProgress || this.pendingReward)) this.abortWaveAndRollback(); else if (document.hidden) this.persistProgress(); };
     document.addEventListener("visibilitychange", this._visHandler);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -84,7 +88,8 @@ export class GameScene extends Phaser.Scene {
       this.circlePool?.destroyAll();
       const idx = achievements.onUnlockCallbacks.indexOf(this._achUnlockHandler);
       if (idx !== -1) achievements.onUnlockCallbacks.splice(idx, 1);
-      this.persistProgress();
+      if (this.waveInProgress || this.pendingReward) this.abortWaveAndRollback();
+      else if (!this._skipShutdownPersist) this.persistProgress();
     });
   }
 
@@ -144,9 +149,11 @@ export class GameScene extends Phaser.Scene {
 
   createTopUI() {
     createButton(this, 50, 26, 75, 34, t("game_menu"), async () => {
+      if (this.waveInProgress) { floatText(this, 270, 110, "Заверши волну перед выходом", "#ff8f8f", 15); return; }
       await this.persistProgress(); this.scene.start("MenuScene");
     }, { textSize: "14px" });
     createButton(this, 140, 26, 85, 34, t("game_shop"), async () => {
+      if (this.waveInProgress) { floatText(this, 270, 110, "Заверши волну перед выходом", "#ff8f8f", 15); return; }
       await this.persistProgress(); this.scene.start("ShopScene");
     }, { textSize: "13px", color: 0x3b2d5e, hoverColor: 0x5a40a0, stroke: 0xb388ff });
     this.waveText = this.add.text(240, 12, "", { fontFamily: "Arial", fontSize: "18px", color: "#ffffff", fontStyle: "bold" });
@@ -250,7 +257,7 @@ export class GameScene extends Phaser.Scene {
     const { row, col } = this.pointerToCell(pointer.x, pointer.y);
     const key = this.cellKey(row, col);
     const existing = this.gridItems.get(key);
-    if (this.selectedTool === "erase") { if (existing) this.eraseAtCell(key, existing, pointer); return; }
+    if (this.selectedTool === "erase") { if (existing && !this.waveInProgress) this.eraseAtCell(key, existing, pointer); return; }
     if (existing && !this.waveInProgress) { this.startDrag(existing, key); return; }
     if (!existing && !this.waveInProgress) this.placeNewPiece(row, col, pointer);
   }
@@ -348,6 +355,8 @@ export class GameScene extends Phaser.Scene {
     this._usedSecondChanceThisRun = false;
     this._autoHealTimer = 0;
 
+    this._runSnapshot = JSON.parse(JSON.stringify(saveManager.data));
+    this._runSnapshot.crystalHP = this.crystalHP;
     this.waveInProgress = true;
     this.spawnedCount = 0;
     this.totalToSpawn = getWaveEnemyCount(saveManager.data.wave);
@@ -427,6 +436,7 @@ export class GameScene extends Phaser.Scene {
     this.processNecromancerBuffs(delta);
     this.processMonsters(time, delta);
     this.processBossAbilities(delta);
+    this.processHeroAbilities(time, delta);
     this.processHealers(delta);
     this.processPoison(time, delta);
     this._processAutoHeal(delta);
@@ -504,7 +514,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (def.id === "teleport") {
-        const target = this._findHeroInCell(piece.row, piece.col);
+        const target = this._findHeroForTrap(piece, true);
         if (!target) continue;
         const rows = (def.teleportRows || 5) + piece.level;
         target.container.y = Math.max(GAME_CONFIG.grid.offsetY, target.container.y - rows * cellSize);
@@ -516,7 +526,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (def.id === "lightning") {
-        const target = this._findHeroInCell(piece.row, piece.col);
+        const target = this._findHeroForTrap(piece, true);
         if (!target) continue;
         const isBoss = target.isBoss || false;
         const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss);
@@ -544,7 +554,7 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (def.id === "poison") {
-        const target = this._findHeroInCell(piece.row, piece.col);
+        const target = this._findHeroForTrap(piece, true);
         if (!target) continue;
         const isBoss = target.isBoss || false;
         const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss);
@@ -557,7 +567,7 @@ export class GameScene extends Phaser.Scene {
         piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
       }
 
-      const target = this._findHeroInCellIgnoreImmune(piece.row, piece.col);
+      const target = this._findHeroForTrap(piece, true);
       if (!target) continue;
       const isBoss = target.isBoss || false;
       const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss);
@@ -582,6 +592,17 @@ export class GameScene extends Phaser.Scene {
     for (const h of list) if (!h.dead && !h.disableTraps && h.row === row) return h;
     return null;
   }
+  _findHeroForTrap(piece, respectImmunity = true) {
+    const def = TOOL_DEFS[piece.type], pos = this.cellCenter(piece.row, piece.col);
+    const range = getToolRange(def, saveManager.data) * GAME_CONFIG.grid.cell;
+    let target = null, best = Infinity;
+    for (const hero of this.heroes) {
+      if (hero.dead || (respectImmunity && hero.disableTraps)) continue;
+      const d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
+      if (d <= range * range && d < best) { target = hero; best = d; }
+    }
+    return target;
+  }
 
   processMonsters(time, delta) {
     const cellSize = GAME_CONFIG.grid.cell;
@@ -593,7 +614,7 @@ export class GameScene extends Phaser.Scene {
       const pPos = this.cellCenter(piece.row, piece.col);
       const maxDist = getToolRange(def, saveManager.data) * cellSize;
       const maxDist2 = maxDist * maxDist;
-      const buffMult = piece._buffMult || 1;
+      const buffMult = (piece._buffMult || 1) * (piece._archmageDebuffUntil > time ? 0.5 : 1);
 
       if (def.id === "dragon") {
         const widthLimit = cellSize * (def.breathWidth || 1);
@@ -671,7 +692,7 @@ export class GameScene extends Phaser.Scene {
       if (necro.type !== "necromancer") continue;
       const def = TOOL_DEFS.necromancer;
       const buffR2 = ((def.buffRadius || 2) * cellSize) ** 2;
-      const buffAmt = (def.buffAmount || 0.3) * necro.level;
+      const buffAmt = ((def.buffAmount || 0.3) + (saveManager.data.necroBonusExtra || 0)) * necro.level;
       const nPos = this.cellCenter(necro.row, necro.col);
       necro.buffTimer = (necro.buffTimer || 0) + delta;
       if (necro.buffTimer >= 2000) { necro.buffTimer = 0; spawnNecromancerAura(this, nPos.x, nPos.y); }
@@ -706,6 +727,37 @@ export class GameScene extends Phaser.Scene {
         hero.summonTimer = 0;
         for (let i = 0; i < (hero.typeDef.summonCount || 1); i++) this.spawnSummonedHero(hero);
         floatText(this, hero.container.x, hero.container.y - 30, t("game_reinforcement"), "#ffaa00", 14);
+      }
+    }
+  }
+
+  processHeroAbilities(time, delta) {
+    for (const hero of this.heroes) {
+      if (hero.dead) continue;
+      const interval = hero.typeDef.trapDestroyInterval;
+      if (interval) {
+        hero.abilityTimer = (hero.abilityTimer || 0) + delta;
+        if (hero.abilityTimer >= interval) {
+          hero.abilityTimer = 0;
+          let closest = null, best = Infinity;
+          for (const piece of this.gridItems.values()) if (piece.kind === "trap") {
+            const pos = this.cellCenter(piece.row, piece.col), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
+            if (d < best && d < (GAME_CONFIG.grid.cell * 2) ** 2) { closest = piece; best = d; }
+          }
+          if (closest) { this.removePiece(this.cellKey(closest.row, closest.col)); floatText(this, hero.container.x, hero.container.y - 35, "РАССЕЯНИЕ!", "#aabfff", 12); }
+        }
+      }
+      if (hero.typeDef.monsterDebuffInterval) {
+        hero.debuffTimer = (hero.debuffTimer || 0) + delta;
+        if (hero.debuffTimer >= hero.typeDef.monsterDebuffInterval) {
+          hero.debuffTimer = 0;
+          let closest = null, best = Infinity;
+          for (const piece of this.gridItems.values()) if (piece.kind === "monster") {
+            const pos = this.cellCenter(piece.row, piece.col), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
+            if (d < best && d < (GAME_CONFIG.grid.cell * 3) ** 2) { closest = piece; best = d; }
+          }
+          if (closest) { closest._archmageDebuffUntil = time + 3500; floatText(this, hero.container.x, hero.container.y - 35, "ПРОКЛЯТИЕ!", "#cc88ff", 12); }
+        }
       }
     }
   }
@@ -792,6 +844,11 @@ export class GameScene extends Phaser.Scene {
     const dmg = Math.max(1, Math.ceil(baseDmg * (1 - reduction)));
 
     this.crystalHP = Math.max(0, this.crystalHP - dmg);
+    if (hero.typeDef.id === "thief") {
+      const stolen = Math.min(saveManager.data.gold, Math.max(1, Math.floor(saveManager.data.gold * 0.1)));
+      saveManager.data.gold -= stolen;
+      floatText(this, 270, this.crystalY - 45, `-${stolen}🪙`, "#ffbb55", 16);
+    }
     this.cameras.main.shake(hero.isBoss ? 300 : 80, hero.isBoss ? 0.015 : 0.006);
     floatText(this, 270, this.crystalY - 20, `-${dmg} HP`, "#ff4444", hero.isBoss ? 22 : 17);
     spawnDeathParticles(this, hero.container.x, hero.container.y, 0xff6666, 5);
@@ -856,6 +913,16 @@ export class GameScene extends Phaser.Scene {
     this.openWavePopup();
   }
 
+  abortWaveAndRollback() {
+    if ((!this.waveInProgress && !this.pendingReward) || !this._runSnapshot) return;
+    saveManager.data = JSON.parse(JSON.stringify(this._runSnapshot));
+    saveManager.recalcBonuses();
+    this.crystalHP = saveManager.data.crystalHP;
+    this.waveInProgress = false; this.pendingReward = null;
+    this.clearHeroes();
+    saveManager.save();
+  }
+
   onGameOver() {
     if (this.gameOverState) return;
     this.waveInProgress = false; this.gameOverState = true;
@@ -885,7 +952,7 @@ export class GameScene extends Phaser.Scene {
       { textSize: "16px", depth: D + 3 });
     const x2Btn = createButton(this, 375, 540, 160, 50, t("popup_x2_video"), async () => {
       const res = await adManager.showRewarded(this);
-      if (res.rewarded || res.mock) await this.claimWaveReward(2);
+      if (res?.rewarded) await this.claimWaveReward(2);
     }, { color: 0x2b5c3c, hoverColor: 0x3a7a50, stroke: 0x7effa7, textSize: "16px", depth: D + 3 });
     this.popupObjects.push(overlay, panel, title, body, takeBtn.bg, takeBtn.txt, x2Btn.bg, x2Btn.txt);
   }
@@ -896,6 +963,7 @@ export class GameScene extends Phaser.Scene {
     saveManager.data.souls += this.pendingReward.souls * mult;
     saveManager.data.wave++;
     this.pendingReward = null;
+    this._runSnapshot = null;
     if (mult === 2) audio.coinCollect();
     this.closePopup();
     this.refreshUI();
@@ -920,12 +988,15 @@ export class GameScene extends Phaser.Scene {
       t("popup_reboot_hint"),
     ].join("\n"), { fontFamily: "Arial", fontSize: "15px", color: "#f1dbe4", align: "center", lineSpacing: 5 }).setOrigin(0.5).setDepth(D + 2);
     const rebootBtn = createButton(this, 165, 540, 160, 52, t("popup_reboot"), async () => {
-      this.clearHeroes(); this.gameOverState = false;
-      await saveManager.reset(); this.scene.restart();
+      this.clearHeroes(); this.gridItems.clear(); this.gameOverState = false;
+      await saveManager.reset();
+      this.crystalHP = saveManager.data.crystalHP;
+      this._skipShutdownPersist = true;
+      this.scene.restart();
     }, { textSize: "15px", depth: D + 3 });
     const reviveBtn = createButton(this, 375, 540, 160, 52, t("popup_revive"), async () => {
       const res = await adManager.showRewarded(this);
-      if (res.rewarded || res.mock) {
+      if (res?.rewarded) {
         this.clearHeroes();
         this.crystalHP = saveManager.data.maxCrystalHP;
         this.gameOverState = false;

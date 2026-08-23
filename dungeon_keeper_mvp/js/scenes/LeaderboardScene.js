@@ -64,7 +64,7 @@ export class LeaderboardScene extends Phaser.Scene {
     const result = await SDK.getLeaderboard(LEADERBOARD_NAME, 10);
 
     if (result.source === "local") {
-      this.statusText.setText(t("lb_source_local"));
+      this.statusText.setText("Локальный рекорд на этом устройстве");
       this.statusText.setColor("#ffaa88");
     } else {
       this.statusText.setText(t("lb_source_yandex"));
