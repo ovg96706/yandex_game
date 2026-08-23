@@ -22,14 +22,18 @@ test("save validation rejects invalid board cells and clamps untrusted values", 
     board: [
       { row: 0, col: 0, type: "spikes", level: 99 },
       { row: 0, col: 0, type: "slime", level: 1 },
-      { row: 8, col: 1, type: "spikes", level: 1 },
-      { row: 1, col: 1, type: "not-real", level: 1 },
+      { row: 0, col: 0, type: "fire_tile", level: 1 }, // вторая ловушка в клетке — отбрасывается
+      { row: 8, col: 1, type: "spikes", level: 1 },     // вне сетки
+      { row: 1, col: 1, type: "not-real", level: 1 },   // неизвестный тип
     ],
   });
   assert.equal(save.version, SAVE_VERSION);
   assert.equal(save.wave, 1);
   assert.equal(save.souls, 0);
   assert.equal(save.upgrades.crit_chance, 20);
-  assert.equal(save.board.length, 1);
-  assert.equal(save.board[0].level, 5);
+  // Комбо «ловушка + монстр» в одной клетке теперь легально (save v10).
+  assert.equal(save.board.length, 2);
+  assert.equal(save.board[0].level, 5); // уровень зажат до MAX_MERGE_LEVEL
+  const kinds = save.board.map((b) => b.kind).sort();
+  assert.deepEqual(kinds, ["monster", "trap"]);
 });

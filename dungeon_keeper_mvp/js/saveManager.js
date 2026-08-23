@@ -1,7 +1,7 @@
 import { SDK } from "./sdk.js";
-import { SHOP_UPGRADES, TOOL_DEFS, HERO_TYPES, TALENTS, TALENT_BRANCHES, QUEST_POOLS, MAX_MERGE_LEVEL } from "./config.js";
+import { SHOP_UPGRADES, TOOL_DEFS, HERO_TYPES, TALENTS, TALENT_BRANCHES, QUEST_POOLS, CHAPTERS, validateBoard } from "./config.js";
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 const MAX_CURRENCY = 1_000_000_000;
 const MAX_WAVE = 1_000_000;
 const DEFAULT_DATA = {
@@ -12,7 +12,7 @@ const DEFAULT_DATA = {
   critChance: 0, critMultiplier: 2, bossDamageBonus: 1, waveBonusMultiplier: 1, eraseRefundBonus: 0.5,
   trapSpeedBonus: 1, trapRangeBonus: 1, poisonBonus: 1, slowBonus: 1, monsterSpeedBonus: 1,
   monsterRangeBonus: 1, mergeLevelBonus: 1, necroBonusExtra: 0, offlineBonus: 1, essenceDropChance: 0,
-  upgrades: {}, talents: {},
+  upgrades: {}, talents: {}, seenChapters: [],
   settings: { sfx: true, music: true, sfxVolume: 0.8, musicVolume: 0.4, language: null },
   dailyStreak: 0, dailyLastClaimAt: 0, wheelLastFreeSpinAt: 0, wheelTotalSpins: 0,
   quests: { daily: { key: "", baseline: {}, claimed: {} }, weekly: { key: "", baseline: {}, claimed: {} } },
@@ -69,16 +69,14 @@ export function validateSave(raw) {
   const rs = raw.stats && typeof raw.stats === "object" ? raw.stats : {};
   for (const key of Object.keys(d.stats)) d.stats[key] = int(rs[key], 0, 0, key === "maxWave" || key === "endlessMaxWave" ? MAX_WAVE : MAX_CURRENCY);
   d.achievements = raw.achievements && typeof raw.achievements === "object" && !Array.isArray(raw.achievements) ? raw.achievements : {};
-  if (Array.isArray(raw.board)) {
-    const occupied = new Set();
-    for (const item of raw.board.slice(0, 40)) {
-      if (!item || !TOOL_DEFS[item.type]) continue;
-      const row = Number.isInteger(item.row) ? item.row : -1, col = Number.isInteger(item.col) ? item.col : -1;
-      const key = `${row}_${col}`;
-      if (row < 0 || row > 7 || col < 0 || col > 4 || occupied.has(key)) continue;
-      occupied.add(key); d.board.push({ row, col, kind: TOOL_DEFS[item.type].kind, type: item.type, level: int(item.level, 1, 1, MAX_MERGE_LEVEL) });
+  if (Array.isArray(raw.seenChapters)) {
+    const known = new Set(CHAPTERS.map((c) => c.id));
+    for (const id of raw.seenChapters) {
+      if (typeof id === "string" && known.has(id) && !d.seenChapters.includes(id)) d.seenChapters.push(id);
     }
   }
+  // Доска: комбо «ловушка + монстр» на клетке, дракон 2×2 — единые правила в config.
+  d.board = validateBoard(raw.board);
   // Derived fields are recalculated below and must never be trusted from storage.
   return d;
 }

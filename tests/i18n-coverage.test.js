@@ -7,6 +7,7 @@ import { i18n } from "../dungeon_keeper_mvp/js/i18n.js";
 import {
   ACHIEVEMENTS, TOOL_DEFS, HERO_TYPES, TALENTS, TALENT_BRANCHES,
   QUEST_KIND_META, SHOP_UPGRADES, UPGRADE_CATEGORIES, ACHIEVEMENT_CATEGORIES,
+  CHAPTERS,
 } from "../dungeon_keeper_mvp/js/config.js";
 
 const gameDir = join(dirname(fileURLToPath(import.meta.url)), "..", "dungeon_keeper_mvp", "js");
@@ -41,6 +42,7 @@ function collectConfigKeys() {
   for (const d of Object.values(SHOP_UPGRADES)) { add(d.labelKey); add(d.descKey); }
   for (const c of Object.values(UPGRADE_CATEGORIES)) add(c.labelKey);
   for (const c of Object.values(ACHIEVEMENT_CATEGORIES)) add(c.labelKey);
+  for (const c of CHAPTERS) { add(c.titleKey); add(c.storyKey); }
   return keys;
 }
 

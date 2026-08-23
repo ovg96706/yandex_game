@@ -67,6 +67,7 @@ const LOCALES = {
     game_reinforcement: "Подкрепление!",
     game_shield_block: "🛡️ Блок!",
     game_boss_defeated: "{0} повержен!",
+    game_unit_slain: "{0} погиб!",
 
     popup_wave_title: "Волна {0} пройдена!",
     popup_wave_boss: "\n👑 {0}",
@@ -244,7 +245,7 @@ const LOCALES = {
     unit_necromancer: "Некромант",
     unit_necromancer_desc: "Усиливает соседей.",
     unit_dragon: "Дракон",
-    unit_dragon_desc: "Огненное дыхание.",
+    unit_dragon_desc: "Огненное дыхание. Занимает 2×2 клетки.",
 
     // Герои
     hero_peasant: "Крестьянин",
@@ -398,6 +399,7 @@ const LOCALES = {
     bestiary_progress: "Открыто: {0}/{1}",
     bestiary_unknown: "???",
     bestiary_damage: "Урон: {0}",
+    bestiary_unit_stats: "⚔{0}  ❤{1}",
     bestiary_hp: "HP ×{0}",
     bestiary_weakness: "Слабость: {0}",
 
@@ -418,7 +420,19 @@ const LOCALES = {
     hero_thief_desc: "Очень быстр; при прорыве крадёт 10% золота.",
     hero_knight_desc: "Медленный, но очень живучий.",
     hero_healer_desc: "Лечит раненых союзников.",
-    hero_paladin_desc: "Босс. Щит держит 3 удара. Слаб к яду.",
+    hero_paladin_desc: "Босс. Щит блокирует первые 3 срабатывания ловушек, но не атаки монстров. Слаб к яду.",
+    // ===== СЮЖЕТНЫЕ ГЛАВЫ =====
+    chapter_continue: "В ПОДЗЕМЕЛЬЕ!",
+    chapter_1_title: "Глава I — Пробуждение Кристалла",
+    chapter_1_story: "Глубоко под горой проснулся древний Кристалл Бездны, и слух о его силе разнёсся по всему королевству. Толпы «героев» уже спускаются по твоим коридорам за славой и золотом. Расставь ловушки, призови монстров — и пусть ни один не доберётся до Кристалла.",
+    chapter_2_title: "Глава II — Орден Рассвета",
+    chapter_2_story: "Крестьяне с вилами кончились: в подземелье вошли рыцари Ордена и их целители, а впереди сияет паладин со священным щитом. Помни: щит держит лишь удары ловушек — монстры пробьют его честно, а яд снимет с паладина спесь быстрее любой стали. Твои монстры гибнут в бою — мёрдж возвращает их силу.",
+    chapter_3_title: "Глава III — Война Архимага",
+    chapter_3_story: "Архимаг Ордена объявил Кристаллу войну. Его антимагия гасит ловушки, а проклятие ослабляет твоих монстров — удержать его под обстрелом ловушек невозможно. Но у пустоты есть чувство юмора: огонь жжёт Архимага по-королевски. Встречай его огненными плитами и клинком монстров.",
+    chapter_4_title: "Глава IV — Королевский поход",
+    chapter_4_story: "Сам Король возглавил крестовый поход против Бездны. Он зовёт подкрепления быстрее, чем они успевают умирать, и его корона уже пять раз объявляла твоё подземелье «лёгкой добычей». Молния — единственный аргумент, который корона понимает без переводчика. Копи заряды, Хранитель.",
+    chapter_5_title: "Глава V — Сердце Бездны",
+    chapter_5_story: "Больше никаких армий — только бесконечная решимость королевства и твой Кристалл. Каждая следующая волна сильнее предыдущей, легенды складывают о тебе страшные сказки, а глубина открывает чёрные дыры и драконов. Свет не победит — он просто не умеет останавливаться. Научи его финалу.",
     hero_archmage_desc: "Босс. Иммунен к ловушкам, ослабляет монстров. Слаб к огню.",
     hero_king_desc: "Босс. Призывает подкрепления. Слаб к молнии.",
 
@@ -545,6 +559,7 @@ const LOCALES = {
     game_reinforcement: "Reinforcements!",
     game_shield_block: "🛡️ Blocked!",
     game_boss_defeated: "{0} defeated!",
+    game_unit_slain: "{0} slain!",
 
     popup_wave_title: "Wave {0} cleared!",
     popup_wave_boss: "\n👑 {0}",
@@ -714,7 +729,7 @@ const LOCALES = {
     unit_necromancer: "Necromancer",
     unit_necromancer_desc: "Buffs allies.",
     unit_dragon: "Dragon",
-    unit_dragon_desc: "Fire breath.",
+    unit_dragon_desc: "Fire breath. Occupies 2×2 cells.",
 
     hero_peasant: "Peasant",
     hero_warrior: "Warrior",
@@ -860,6 +875,7 @@ const LOCALES = {
     bestiary_progress: "Discovered: {0}/{1}",
     bestiary_unknown: "???",
     bestiary_damage: "Damage: {0}",
+    bestiary_unit_stats: "⚔{0}  ❤{1}",
     bestiary_hp: "HP ×{0}",
     bestiary_weakness: "Weakness: {0}",
 
@@ -880,7 +896,19 @@ const LOCALES = {
     hero_thief_desc: "Very fast; steals 10% gold on breaking through.",
     hero_knight_desc: "Slow but very tough.",
     hero_healer_desc: "Heals wounded allies.",
-    hero_paladin_desc: "Boss. Shield blocks 3 hits. Weak to poison.",
+    hero_paladin_desc: "Boss. Shield blocks the first 3 trap effects, but not monster attacks. Weak to poison.",
+    // ===== STORY CHAPTERS =====
+    chapter_continue: "TO THE DUNGEON!",
+    chapter_1_title: "Chapter I — Awakening of the Crystal",
+    chapter_1_story: "Deep beneath the mountain, the ancient Abyss Crystal has awakened, and word of its power has spread across the kingdom. Crowds of \"heroes\" are already marching down your halls for glory and gold. Set traps, summon monsters — and let none of them reach the Crystal.",
+    chapter_2_title: "Chapter II — The Order of Dawn",
+    chapter_2_story: "The pitchfork mobs are gone: knights of the Order now march in with their healers, led by a paladin with a holy shield. Remember: the shield only stops trap hits — your monsters must break him honestly, and poison strips his pride faster than any steel. Monsters can fall in battle — merging restores their strength.",
+    chapter_3_title: "Chapter III — War of the Archmage",
+    chapter_3_story: "The Order's Archmage has declared war on the Crystal. His anti-magic snuffs out traps and his curse weakens your monsters — traps simply cannot touch him. But the Abyss has a sense of humour: fire burns the Archmage like kindling. Meet him with fire tiles and monster steel.",
+    chapter_4_title: "Chapter IV — The Royal Crusade",
+    chapter_4_story: "The King himself leads the crusade against the Abyss. He calls reinforcements faster than they can die, and his crown has already declared your dungeon \"easy prey\" five times. Lightning is the only argument the crown understands without a translator. Charge up, Keeper.",
+    chapter_5_title: "Chapter V — Heart of the Abyss",
+    chapter_5_story: "No more armies — only the kingdom's endless resolve and your Crystal. Every wave is stronger than the last, bards sing horror tales about you, and the deep yields black holes and dragons. The light cannot win — it simply does not know how to stop. Teach it an ending.",
     hero_archmage_desc: "Boss. Trap-immune, weakens monsters. Weak to fire.",
     hero_king_desc: "Boss. Summons reinforcements. Weak to lightning.",
 
@@ -1007,6 +1035,7 @@ const LOCALES = {
     game_reinforcement: "Takviye!",
     game_shield_block: "🛡️ Engellendi!",
     game_boss_defeated: "{0} yenildi!",
+    game_unit_slain: "{0} öldürüldü!",
 
     popup_wave_title: "Dalga {0} tamamlandı!",
     popup_wave_boss: "\n👑 {0}",
@@ -1175,7 +1204,7 @@ const LOCALES = {
     unit_necromancer: "Nekromant",
     unit_necromancer_desc: "Müttefikleri güçlendirir.",
     unit_dragon: "Ejderha",
-    unit_dragon_desc: "Ateş nefesi.",
+    unit_dragon_desc: "Ateş nefesi. 2×2 kare kaplar.",
 
     hero_peasant: "Köylü",
     hero_warrior: "Savaşçı",
@@ -1321,6 +1350,7 @@ const LOCALES = {
     bestiary_progress: "Keşfedilen: {0}/{1}",
     bestiary_unknown: "???",
     bestiary_damage: "Hasar: {0}",
+    bestiary_unit_stats: "⚔{0}  ❤{1}",
     bestiary_hp: "CAN ×{0}",
     bestiary_weakness: "Zayıflık: {0}",
 
@@ -1341,7 +1371,19 @@ const LOCALES = {
     hero_thief_desc: "Çok hızlı; geçerken altının %10'unu çalar.",
     hero_knight_desc: "Yavaş ama çok dayanıklı.",
     hero_healer_desc: "Yaralı müttefikleri iyileştirir.",
-    hero_paladin_desc: "Patron. Kalkan 3 vuruş tutar. Zehre zayıf.",
+    hero_paladin_desc: "Patron. Kalkan ilk 3 tuzak etkisini engeller, canavar saldırılarını değil. Zehre zayıf.",
+    // ===== HİKÂYE BÖLÜMLERİ =====
+    chapter_continue: "ZİNDANA!",
+    chapter_1_title: "Bölüm I — Kristalin Uyanışı",
+    chapter_1_story: "Dağın derinliklerinde kadim Hiçlik Kristali uyandı ve gücünün haberi tüm krallığa yayıldı. Kalabalık \"kahramanlar\" şan ve altın için çoktan koridorlarına indi. Tuzaklar kur, canavarları çağır — hiçbiri Kristale ulaşmasın.",
+    chapter_2_title: "Bölüm II — Şafak Tarikatı",
+    chapter_2_story: "Tırpanlı kalabalıklar bitti: karşında şifacılarıyla birlikte Tarikat şövalyeleri var, önlerinde ise kutsal kalkanlı bir paladin. Unutma: kalkan yalnızca tuzak vuruşlarını tutar — canavarların onu dürüstçe kırar, zehir ise kibrini çelikten hızlı söker. Canavarların savaşta ölebilir — birleştirmek güçlerini tazeler.",
+    chapter_3_title: "Bölüm III — Baş Büyücünün Savaşı",
+    chapter_3_story: "Tarikat'ın Baş Büyücüsü Kristale savaş açtı. Karşı büyüsü tuzakları söndürüyor, laneti canavarlarını zayıflatıyor — tuzaklar ona hiç dokunamıyor. Ama Hiçlik'in mizah duygusu var: ateş Baş Büyücüyü kuru odun gibi yakar. Onu ateş karoları ve canavar çeliğiyle karşıla.",
+    chapter_4_title: "Bölüm IV — Kraliyet Seferi",
+    chapter_4_story: "Kral bizzat Hiçlik'e karşı seferin başına geçti. Takviyeleri öldürülebildiklerinden hızlı çağırıyor ve tacı zindanını beş kez \"kolay av\" ilan etti bile. Yıldırım, tacın tercümansız anladığı tek argüman. Gücünü topla, Bekçi.",
+    chapter_5_title: "Bölüm V — Hiçliğin Kalbi",
+    chapter_5_story: "Artık ordu yok — sadece krallığın bitmez kararlılığı ve senin Kristalin. Her dalga bir öncekinden güçlü, ozanlar senin korku hikâyelerini söylüyor ve derinlik kara deliklerle ejderhalar veriyor. Işık kazanamaz — durmayı bilmiyor sadece. Ona bir son öğret.",
     hero_archmage_desc: "Patron. Tuzak bağışıklığı, canavarları zayıflatır. Ateşe zayıf.",
     hero_king_desc: "Patron. Takviye çağırır. Şimşeğe zayıf.",
 

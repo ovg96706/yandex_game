@@ -1,7 +1,7 @@
 import { saveManager } from "../saveManager.js";
 import { SDK } from "../sdk.js";
 import { createButton } from "../ui.js";
-import { canClaimDaily, canSpinWheelFree, shouldResetStreak, ACHIEVEMENTS, getOfflineIncome, ENDLESS } from "../config.js";
+import { canClaimDaily, canSpinWheelFree, shouldResetStreak, ACHIEVEMENTS, getOfflineIncome, ENDLESS, getChapterForWave } from "../config.js";
 import { achievements } from "../achievements.js";
 import { questsReadyCount, ensureQuests } from "../quests.js";
 import { audio } from "../audio.js";
@@ -58,7 +58,9 @@ export class MenuScene extends Phaser.Scene {
 
     // Статистика
     const d = saveManager.data;
+    const chapter = getChapterForWave(d.wave);
     this.add.text(270, 244, [
+      `📜 ${t(chapter.titleKey)}`,
       `${t("menu_wave")}: ${d.wave}   ${t("menu_maxWave")}: ${d.stats?.maxWave || 0}`,
       `🪙 ${d.gold}   💀 ${d.souls}   💎 ${d.darkCrystals}   🔮 ${d.essence}`,
       `${t("menu_hp")}: ${d.crystalHP}/${d.maxCrystalHP}`,

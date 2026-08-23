@@ -2,7 +2,7 @@ import { saveManager } from "../saveManager.js";
 import { audio } from "../audio.js";
 import { createButton } from "../ui.js";
 import {
-  TOOL_DEFS, HERO_TYPES, toolLabel, toolDesc, heroLabel,
+  TOOL_DEFS, HERO_TYPES, toolLabel, toolDesc, heroLabel, getMonsterMaxHP,
 } from "../config.js";
 import { t } from "../i18n.js";
 
@@ -22,6 +22,7 @@ function collectEntries(tab, discoveredMap) {
     kind: def.kind,
     damage: def.damage,
     hpMult: def.hpMult,
+    monsterHP: def.kind === "monster" ? getMonsterMaxHP(def, 1) : 0,
   }));
 }
 
@@ -95,7 +96,11 @@ export class BestiaryScene extends Phaser.Scene {
       const icon = this.add.text(x, y - 48, e.icon, { fontFamily: "Arial", fontSize: "26px" }).setOrigin(0.5);
       const name = this.add.text(x, y - 22, (e.isBoss ? "👑 " : "") + e.name, { fontFamily: "Arial", fontSize: "13px", color: "#ffffff", fontStyle: "bold", align: "center", wordWrap: { width: cardW - 12 } }).setOrigin(0.5);
       const desc = this.add.text(x, y + 8, e.desc, { fontFamily: "Arial", fontSize: "10px", color: "#99a7c9", align: "center", wordWrap: { width: cardW - 14 } }).setOrigin(0.5);
-      const stat = this.add.text(x, y + 52, this.tab === "heroes" ? t("bestiary_hp", e.hpMult ?? 1) : t("bestiary_damage", e.damage ?? 0), { fontFamily: "Arial", fontSize: "11px", color: "#ffd700" }).setOrigin(0.5);
+      const stat = this.add.text(x, y + 52,
+        this.tab === "heroes"
+          ? t("bestiary_hp", e.hpMult ?? 1)
+          : (e.kind === "monster" ? t("bestiary_unit_stats", e.damage ?? 0, e.monsterHP ?? 0) : t("bestiary_damage", e.damage ?? 0)),
+        { fontFamily: "Arial", fontSize: "11px", color: "#ffd700" }).setOrigin(0.5);
       this.cardLayer.add([panel, icon, name, desc, stat]);
 
       if (e.weakness) {

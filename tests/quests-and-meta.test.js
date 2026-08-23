@@ -15,7 +15,7 @@ function freshSave() {
   return s;
 }
 
-test("save version 9 keeps premium currencies, quests and bestiary within safe bounds", () => {
+test("save version 10 keeps premium currencies, quests and bestiary within safe bounds", () => {
   const s = validateSave({
     version: 8, darkCrystals: -5, essence: 1e12,
     talents: { shadow_power: 99, abyss_hp: 2, unknown_talent: 5 },
@@ -32,7 +32,7 @@ test("save version 9 keeps premium currencies, quests and bestiary within safe b
   assert.equal(s.discovered.units.spikes, true);
   assert.equal(s.discovered.units.fake_unit, undefined);
   assert.equal(s.discovered.heroes.ghost, undefined);
-  assert.equal(SAVE_VERSION, 9);
+  assert.equal(SAVE_VERSION, 10);
 });
 
 test("quests are deterministic per period and never trust save for goals/rewards", () => {
