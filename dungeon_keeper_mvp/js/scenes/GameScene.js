@@ -4,6 +4,8 @@ import {
   getToolCost, isToolUnlocked, pickHeroType, getBossForWave, getHeroReward,
   toolLabel, toolDesc, heroLabel,
   computeDamage, getTrapCooldown, getMonsterCooldown, getToolRange,
+  getToolFootprint, isFootprintInBounds, getMonsterMaxHP, getHeroAttackDamage,
+  getChapterForWave,
   ENDLESS, getEndlessBossType,
 } from "../config.js";
 import { saveManager } from "../saveManager.js";
@@ -51,10 +53,9 @@ export class GameScene extends Phaser.Scene {
     this.pendingReward = null;
     this.popupObjects = [];
     this.heroes = [];
-    this.gridItems = new Map();
+    this.gridItems = new Map(); // "row_col" -> { trap, monster }: комбо-слоты, дракон 2×2
     this.selectedTool = "spikes";
     this.dragItem = null;
-    this.dragOriginCell = null;
     this.dragGraphic = null;
     this.toolPage = 0;
     this.toolsPerPage = 4;
@@ -78,7 +79,6 @@ export class GameScene extends Phaser.Scene {
     this._skipShutdownPersist = false;
 
     this._precomputeGrid();
-    this.heroesByCol = Array.from({ length: GAME_CONFIG.grid.cols }, () => []);
     this._uiCache = { wave: -1, gold: -1, souls: -1, hp: -1, maxHp: -1 };
 
     this._achUnlockHandler = (ach) => showAchievementToast(this, ach);
@@ -117,9 +117,12 @@ export class GameScene extends Phaser.Scene {
       const idx = achievements.onUnlockCallbacks.indexOf(this._achUnlockHandler);
       if (idx !== -1) achievements.onUnlockCallbacks.splice(idx, 1);
       if (this.isEndless) return; // в Бездне нет ни незавершённых наград кампании, ни доски для сохранения
-      if (this.waveInProgress || this.pendingReward) this.abortWaveAndRollback();
+      if (this.waveInProgress || this.pendingReward) this.abortWaveAndRollback(false);
       else if (!this._skipShutdownPersist) this.persistProgress();
     });
+
+    // Сюжетное интро главы — один раз при первом достижении её волны.
+    if (!this.isEndless) this.time.delayedCall(400, () => this._maybeShowChapterIntro());
   }
 
   _precomputeGrid() {
@@ -260,105 +263,203 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ============================
+  // ДОСКА: комбо «ловушка + монстр» в клетке, фигуры 2×2 (дракон)
+  // gridItems: key("row_col") -> { trap: piece|null, monster: piece|null }
+  // Не-якорные клетки дракона ссылаются на ту же фигуру (якорь — верхний левый угол).
+  // ============================
+
+  cellEntry(row, col) { return this.gridItems.get(this.cellKey(row, col)) || null; }
+
+  _setSlot(row, col, kind, piece) {
+    const key = this.cellKey(row, col);
+    let entry = this.gridItems.get(key);
+    if (!entry) { entry = { trap: null, monster: null }; this.gridItems.set(key, entry); }
+    entry[kind] = piece;
+  }
+
+  _clearSlot(row, col, kind, piece) {
+    const key = this.cellKey(row, col);
+    const entry = this.gridItems.get(key);
+    if (entry && entry[kind] === piece) {
+      entry[kind] = null;
+      if (!entry.trap && !entry.monster) this.gridItems.delete(key);
+    }
+  }
+
+  /** Все уникальные фигуры доски (дракон учитывается один раз, хотя занимает 4 клетки). */
+  iterPieces() {
+    const seen = new Set(), out = [];
+    for (const entry of this.gridItems.values()) {
+      const tp = entry.trap, mn = entry.monster;
+      if (tp && !seen.has(tp)) { seen.add(tp); out.push(tp); }
+      if (mn && !seen.has(mn)) { seen.add(mn); out.push(mn); }
+    }
+    return out;
+  }
+
+  piecesOfKind(kind) { return this.iterPieces().filter((p) => p.kind === kind); }
+
+  /** Фигура def помещается якорем в (row, col): вся в сетке и слоты её типа свободны. */
+  isFootprintFree(def, row, col, ignore = null) {
+    if (!isFootprintInBounds(def, row, col)) return false;
+    for (const c of getToolFootprint(def, row, col)) {
+      const occ = this.cellEntry(c.row, c.col)?.[def.kind];
+      if (occ && occ !== ignore) return false;
+    }
+    return true;
+  }
+
+  /** Центр фигуры (для дракона — центр блока 2×2). */
+  piecePos(piece) {
+    const def = TOOL_DEFS[piece.type];
+    const half = GAME_CONFIG.grid.cell * ((def.size || 1) - 1) / 2;
+    const origin = this.cellCenter(piece.row, piece.col);
+    return { x: origin.x + half, y: origin.y + half };
+  }
+
   restoreBoard() { for (const i of saveManager.data.board) this.spawnBoardPiece(i, false); }
 
   spawnBoardPiece(data, withEffect = true) {
     const def = TOOL_DEFS[data.type]; if (!def) return;
+    if (!this.isFootprintFree(def, data.row, data.col)) return; // защита от некорректного сейва
     saveManager.markDiscovered("units", data.type);
-    const pos = this.cellCenter(data.row, data.col);
+    const size = def.size || 1;
+    const g = GAME_CONFIG.grid;
+    const half = g.cell * (size - 1) / 2;
+    const origin = this.cellCenter(data.row, data.col);
+    const pos = { x: origin.x + half, y: origin.y + half };
     const lvl = Math.min(data.level || 1, MAX_MERGE_LEVEL);
     const graphic = drawPiece(this, data.type, def.kind, lvl);
+    if (size > 1) graphic.setScale(size * 0.9);
     const children = [graphic];
     let lvlLabel = null;
     if (lvl > 1) {
-      lvlLabel = this.add.text(16, 14, `${lvl}`, { fontFamily: "Arial", fontSize: "12px", color: "#ffffff", fontStyle: "bold", stroke: "#000000", strokeThickness: 3 }).setOrigin(0.5);
+      lvlLabel = this.add.text(16 * size, 14 * size, `${lvl}`, { fontFamily: "Arial", fontSize: "12px", color: "#ffffff", fontStyle: "bold", stroke: "#000000", strokeThickness: 3 }).setOrigin(0.5);
       children.push(lvlLabel);
     }
-    const container = this.add.container(pos.x, pos.y, children).setSize(GAME_CONFIG.grid.cell, GAME_CONFIG.grid.cell);
-    const piece = { row: data.row, col: data.col, kind: def.kind, type: data.type, level: lvl, cooldown: 0, buffTimer: 0, _buffMult: 1, container, graphic, lvlLabel };
-    this.gridItems.set(this.cellKey(data.row, data.col), piece);
+    // У монстров есть HP — герои могут их уничтожить. Полоска появляется после первого урона.
+    let hp = 0, maxHp = 0, hpBg = null, hpFill = null;
+    const hpBarW = 34 * size;
+    if (def.kind === "monster") {
+      maxHp = hp = getMonsterMaxHP(def, lvl);
+      const barY = -20 * size - 3;
+      hpBg = this.add.rectangle(0, barY, hpBarW, 4, 0x000000).setVisible(false);
+      hpFill = this.add.rectangle(-hpBarW / 2, barY, hpBarW, 4, 0x57ffb8).setOrigin(0, 0.5).setVisible(false);
+      children.push(hpBg, hpFill);
+    }
+    const container = this.add.container(pos.x, pos.y, children)
+      .setSize(g.cell * size, g.cell * size)
+      .setDepth(def.kind === "trap" ? 10 : 20);
+    const piece = {
+      row: data.row, col: data.col, kind: def.kind, type: data.type, level: lvl,
+      cooldown: 0, buffTimer: 0, _buffMult: 1,
+      hp, maxHp, hpBarW, hpBg, hpFill,
+      container, graphic, lvlLabel,
+    };
+    for (const c of getToolFootprint(def, data.row, data.col)) this._setSlot(c.row, c.col, def.kind, piece);
     if (withEffect) spawnPlaceEffect(this, pos.x, pos.y, def.kind === "trap" ? 0xffaa00 : 0x57ffb8);
   }
 
-  removePiece(key) {
-    const p = this.gridItems.get(key); if (!p) return;
-    p.container.destroy(true);
-    this.gridItems.delete(key);
+  removePiece(piece) {
+    if (!piece) return;
+    const def = TOOL_DEFS[piece.type];
+    for (const c of getToolFootprint(def, piece.row, piece.col)) this._clearSlot(c.row, c.col, piece.kind, piece);
+    piece.container.destroy(true);
   }
+
+  _clearBoard() { for (const p of this.iterPieces()) p.container.destroy(true); this.gridItems.clear(); }
 
   onPointerDown(pointer) {
     if (this.popupObjects.length > 0) return;
     if (!this.isInsideGrid(pointer.x, pointer.y)) return;
     const { row, col } = this.pointerToCell(pointer.x, pointer.y);
-    const key = this.cellKey(row, col);
-    const existing = this.gridItems.get(key);
-    if (this.selectedTool === "erase") { if (existing && !this.waveInProgress) this.eraseAtCell(key, existing, pointer); return; }
-    if (existing && !this.waveInProgress) { this.startDrag(existing, key); return; }
-    if (!existing && !this.waveInProgress) this.placeNewPiece(row, col, pointer);
+    const entry = this.cellEntry(row, col);
+    const topPiece = entry ? (entry.monster || entry.trap) : null;
+    if (this.selectedTool === "erase") {
+      // Стирание одной фигуры за клик (верхний слой — монстр) и запрещено во время волны.
+      if (topPiece && !this.waveInProgress) this.erasePiece(topPiece, pointer);
+      return;
+    }
+    const selDef = TOOL_DEFS[this.selectedTool];
+    if (!selDef || this.waveInProgress) return;
+    // Фигуру того же типа, что и выбранный инструмент, перетаскиваем (ход/мёрдж);
+    // инструмент другого типа ставится в свободный слой клетки — комбо ловушка+монстр.
+    if (topPiece && topPiece.kind === selDef.kind) { this.startDrag(topPiece); return; }
+    this.placeNewPiece(row, col, pointer);
   }
 
   onPointerMove(pointer) { if (this.dragItem && this.dragGraphic) this.dragGraphic.setPosition(pointer.x, pointer.y); }
 
   onPointerUp(pointer) {
     if (!this.dragItem) return;
-    const item = this.dragItem, originKey = this.dragOriginCell;
+    const item = this.dragItem;
     if (this.dragGraphic) { this.dragGraphic.destroy(true); this.dragGraphic = null; }
     item.container.setAlpha(1);
-    this.dragItem = null; this.dragOriginCell = null;
+    this.dragItem = null;
     if (!this.isInsideGrid(pointer.x, pointer.y)) return;
     const { row, col } = this.pointerToCell(pointer.x, pointer.y);
-    const targetKey = this.cellKey(row, col);
-    if (targetKey === originKey) return;
-    const tp = this.gridItems.get(targetKey);
-    if (tp) this.tryMerge(item, originKey, tp, targetKey, pointer);
-    else this.movePiece(item, originKey, row, col, targetKey);
+    if (row === item.row && col === item.col) return; // бросили на свой якорь — без изменений
+    const occupant = this.cellEntry(row, col)?.[item.kind] || null;
+    if (occupant && occupant !== item) this.tryMerge(item, occupant, pointer);
+    else this.movePiece(item, row, col, pointer);
     this.refreshUI();
     saveManager.saveThrottled();
   }
 
-  startDrag(piece, key) {
-    this.dragItem = piece; this.dragOriginCell = key;
+  startDrag(piece) {
+    this.dragItem = piece;
     piece.container.setAlpha(0.35);
     const def = TOOL_DEFS[piece.type];
     const c = def.mergeColors?.[piece.level - 1] || def.color;
+    const size = def.size || 1;
     this.dragGraphic = (def.kind === "trap"
       ? this.add.rectangle(piece.container.x, piece.container.y, 28, 28, c, 0.6).setStrokeStyle(2, 0xffffff)
-      : this.add.circle(piece.container.x, piece.container.y, 16, c, 0.6)).setDepth(5000);
+      : this.add.circle(piece.container.x, piece.container.y, 16 * size, c, 0.6)).setDepth(5000);
   }
 
-  tryMerge(source, sKey, target, tKey, pointer) {
+  tryMerge(source, target, pointer) {
     if (source.type === target.type && source.level === target.level && source.level < MAX_MERGE_LEVEL) {
       const nl = source.level + 1;
-      this.removePiece(sKey); this.removePiece(tKey);
-      const [r, c] = tKey.split("_").map(Number);
-      this.spawnBoardPiece({ row: r, col: c, kind: source.kind, type: source.type, level: nl });
-      const pos = this.cellCenter(r, c);
+      const anchorRow = target.row, anchorCol = target.col, type = source.type;
+      this.removePiece(source); this.removePiece(target);
+      this.spawnBoardPiece({ row: anchorRow, col: anchorCol, type, level: nl });
+      const def = TOOL_DEFS[type];
+      const np = this.cellEntry(anchorRow, anchorCol)?.[def.kind];
+      const pos = np ? this.piecePos(np) : this.cellCenter(anchorRow, anchorCol);
       floatText(this, pos.x, pos.y - 25, t("game_merge_success", nl), "#ffd700", 20);
       spawnMergeEffect(this, pos.x, pos.y); audio.merge();
-      const np = this.gridItems.get(tKey); if (np) this.pulsePiece(np);
+      if (np) this.pulsePiece(np);
 
       saveManager.incStat("totalMerges", 1);
-      if (nl >= MAX_MERGE_LEVEL) saveManager.setSta } else {
+      if (nl >= MAX_MERGE_LEVEL) saveManager.setStatMax("maxLevelMerge", 1);
+      achievements.checkAll();
+    } else {
       const msg = source.type !== target.type ? t("game_diff_types")
         : source.level !== target.level ? t("game_diff_levels") : t("game_max_level");
       floatText(this, pointer.x, pointer.y - 20, msg, "#ff8f8f", 15); audio.mergeFail();
     }
   }
 
-  movePiece(piece, oldKey, nr, nc, newKey) {
-    this.gridItems.delete(oldKey);
+  movePiece(piece, nr, nc, pointer) {
+    const def = TOOL_DEFS[piece.type];
+    if (!this.isFootprintFree(def, nr, nc, piece)) {
+      floatText(this, pointer.x, pointer.y - 20, t("game_cell_taken"), "#ff8f8f", 15); audio.error();
+      return;
+    }
+    for (const c of getToolFootprint(def, piece.row, piece.col)) this._clearSlot(c.row, c.col, piece.kind, piece);
     piece.row = nr; piece.col = nc;
-    const pos = this.cellCenter(nr, nc);
+    const pos = this.piecePos(piece);
     piece.container.setPosition(pos.x, pos.y);
-    this.gridItems.set(newKey, piece);
+    for (const c of getToolFootprint(def, nr, nc)) this._setSlot(c.row, c.col, piece.kind, piece);
   }
 
-  eraseAtCell(key, piece, pointer) {
+  erasePiece(piece, pointer) {
     const def = TOOL_DEFS[piece.type];
     const refundPercent = saveManager.data.eraseRefundBonus ?? 0.5;
     const refund = Math.floor(getToolCost(def, saveManager.data) * refundPercent * piece.level);
     this.addGold(refund);
-    this.removePiece(key);
+    this.removePiece(piece);
     floatText(this, pointer.x, pointer.y - 10, `+${refund}🪙`, "#ffd700", 16);
     audio.erase();
     this.refreshUI();
@@ -370,11 +471,14 @@ export class GameScene extends Phaser.Scene {
     if (!isToolUnlocked(def, this.waveNo())) {
       floatText(this, pointer.x, pointer.y - 10, t("game_not_unlocked"), "#ff8f8f", 15); audio.error(); return;
     }
+    if (!this.isFootprintFree(def, row, col)) {
+      floatText(this, pointer.x, pointer.y - 10, t("game_cell_taken"), "#ff8f8f", 15); audio.error(); return;
+    }
     const cost = getToolCost(def, saveManager.data);
     if (!this.trySpendGold(cost)) {
       floatText(this, pointer.x, pointer.y - 10, t("game_not_enough_gold"), "#ff8f8f", 16); audio.error(); return;
     }
-    this.spawnBoardPiece({ row, col, kind: def.kind, type: def.id, level: 1 });
+    this.spawnBoardPiece({ row, col, type: def.id, level: 1 });
     floatText(this, pointer.x, pointer.y - 10, `-${cost}`, "#ffd700", 16);
     audio.place();
     this.refreshUI();
@@ -426,7 +530,7 @@ export class GameScene extends Phaser.Scene {
     const hpFill = this.add.rectangle(-hpW / 2, -22 * scale, hpW, 4, td.isBoss ? 0xff4444 : 0x57ffb8).setOrigin(0, 0.5);
     const children = [graphic, hpBg, hpFill];
     if (td.isBoss) children.push(this.add.text(0, -32 * scale, "👑", { fontFamily: "Arial", fontSize: "16px" }).setOrigin(0.5));
-    const container = this.add.container(x, y, children);
+    const container = this.add.container(x, y, children).setDepth(30);
     const hero = {
       col, hp, maxHp: hp, lastRenderedHp: hp,
       speed, speedMultiplier: 1, slowUntil: 0, dead: false,
@@ -434,11 +538,12 @@ export class GameScene extends Phaser.Scene {
       disableTraps: td.disableTraps || false, weaknessTool: td.weaknessTool || null,
       summonTimer: 0, healTimer: 0,
       poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0,
+      // Бой с монстрами: герой останавливается у цели и наносит удары.
+      attackCooldown: Phaser.Math.Between(150, 600), engaged: false,
       container, graphic, hpBg, hpFill, hpBarWidth: hpW,
       row: -1,
     };
     this.heroes.push(hero);
-    this.heroesByCol[col].push(hero);
     if (td.isBoss) this.cameras.main.shake(200, 0.008);
   }
 
@@ -454,10 +559,9 @@ export class GameScene extends Phaser.Scene {
     const graphic = drawHeroByType(this, "peasant");
     const hpBg = this.add.rectangle(0, -22, 36, 4, 0x000000);
     const hpFill = this.add.rectangle(-18, -22, 36, 4, 0xffaa44).setOrigin(0, 0.5);
-    const container = this.add.container(x, y, [graphic, hpBg, hpFill]);
-    const hero = { col, hp, maxHp: hp, lastRenderedHp: hp, speed, speedMultiplier: 1, slowUntil: 0, dead: false, typeDef: td, isBoss: false, shieldHits: 0, disableTraps: false, weaknessTool: null, summonTimer: 0, healTimer: 0, poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0, container, graphic, hpBg, hpFill, hpBarWidth: 36, row: -1 };
+    const container = this.add.container(x, y, [graphic, hpBg, hpFill]).setDepth(30);
+    const hero = { col, hp, maxHp: hp, lastRenderedHp: hp, speed, speedMultiplier: 1, slowUntil: 0, dead: false, typeDef: td, isBoss: false, shieldHits: 0, disableTraps: false, weaknessTool: null, summonTimer: 0, healTimer: 0, poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0, attackCooldown: Phaser.Math.Between(150, 600), engaged: false, container, graphic, hpBg, hpFill, hpBarWidth: 36, row: -1 };
     this.heroes.push(hero);
-    this.heroesByCol[col].push(hero);
     spawnPlaceEffect(this, x, y, 0xffaa44);
   }
 
@@ -472,6 +576,7 @@ export class GameScene extends Phaser.Scene {
       else this.spawnHero(false);
       this.spawnedCount++;
     }
+    this.processHeroAttacks(dt);
     this.updateHeroes(time, dt);
     this.processTraps(time, dt);
     this.processNecromancerBuffs(dt);
@@ -501,6 +606,64 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Герои атакуют монстров: цель в радиусе — герой останавливается и бьёт. */
+  processHeroAttacks(delta) {
+    const cellSize = GAME_CONFIG.grid.cell;
+    let monsters = null; // список собирается лениво, только если есть атакующие
+    for (const hero of this.heroes) {
+      if (hero.dead) continue;
+      hero.engaged = false;
+      const atkMult = hero.typeDef.attackMult ?? 1;
+      if (atkMult <= 0) continue; // целитель не сражается
+      hero.attackCooldown = (hero.attackCooldown || 0) - delta;
+      if (!monsters) monsters = this.piecesOfKind("monster");
+      if (!monsters.length) continue;
+      const rangeLim = (hero.typeDef.attackRange ?? 1.35) * cellSize;
+      const r2Lim = rangeLim * rangeLim;
+      let target = null, best = Infinity;
+      for (const piece of monsters) {
+        if (piece.hp <= 0) continue; // цель уже добита другим героем в этом кадре
+        const pos = this.piecePos(piece);
+        const d2 = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
+        if (d2 <= r2Lim && d2 < best) { best = d2; target = piece; }
+      }
+      if (!target) continue;
+      hero.engaged = true;
+      if (hero.attackCooldown > 0) continue;
+      hero.attackCooldown = hero.typeDef.attackInterval ?? 1100;
+      this.damageMonster(target, getHeroAttackDamage(hero.typeDef, this.waveNo()));
+      hero.graphic.setTint(0xffe08a);
+      this.time.delayedCall(70, () => { if (!hero.dead) hero.graphic.clearTint(); });
+    }
+  }
+
+  /** Урон монстру от героя. Монстры имеют HP и могут погибнуть (дизайн-док). */
+  damageMonster(piece, amount) {
+    if (!piece || piece.kind !== "monster" || piece.hp <= 0) return;
+    piece.hp -= amount;
+    const def = TOOL_DEFS[piece.type];
+    const pos = this.piecePos(piece);
+    floatText(this, pos.x + Phaser.Math.Between(-6, 6), pos.y - 18 * (def.size || 1), `-${amount}`, "#ffd166", 13);
+    if (piece.hpBg) {
+      piece.hpBg.setVisible(true); piece.hpFill.setVisible(true);
+      const r = Math.max(0, piece.hp / piece.maxHp);
+      piece.hpFill.width = piece.hpBarW * r;
+      piece.hpFill.setFillStyle(r > 0.5 ? 0x57ffb8 : r > 0.25 ? 0xffd166 : 0xff4757);
+    }
+    audio.trapHit();
+    if (piece.hp <= 0) this.killMonster(piece);
+  }
+
+  /** Монстр уничтожен героями: фигура снимается с доски (мёрдж нового — за золото). */
+  killMonster(piece) {
+    const def = TOOL_DEFS[piece.type];
+    const pos = this.piecePos(piece);
+    spawnDeathParticles(this, pos.x, pos.y, def.mergeColors?.[piece.level - 1] || def.color, 14);
+    floatText(this, pos.x, pos.y - 32, t("game_unit_slain", toolLabel(def)), "#ff8f8f", 14);
+    audio.heroDeath();
+    this.removePiece(piece);
+  }
+
   updateHeroes(time, delta) {
     const grid = GAME_CONFIG.grid;
     const botY = this._gridBounds.bottomY;
@@ -508,8 +671,10 @@ export class GameScene extends Phaser.Scene {
     for (let i = this.heroes.length - 1; i >= 0; i--) {
       const hero = this.heroes[i];
       if (hero.dead) continue;
-      const sm = hero.slowUntil > time ? hero.speedMultiplier : 1;
-      hero.container.y += hero.speed * sm * dt;
+      if (!hero.engaged) { // сражающийся герой стоит на месте
+        const sm = hero.slowUntil > time ? hero.speedMultiplier : 1;
+        hero.container.y += hero.speed * sm * dt;
+      }
       const newRow = Math.floor((hero.container.y - grid.offsetY) / grid.cell);
       if (newRow !== hero.row) hero.row = newRow;
       if (hero.hp !== hero.lastRenderedHp) {
@@ -524,12 +689,11 @@ export class GameScene extends Phaser.Scene {
 
   processTraps(time, delta) {
     const cellSize = GAME_CONFIG.grid.cell;
-    for (const piece of this.gridItems.values()) {
-      if (piece.kind !== "trap") continue;
+    for (const piece of this.piecesOfKind("trap")) {
       piece.cooldown -= delta;
       if (piece.cooldown > 0) continue;
       const def = TOOL_DEFS[piece.type];
-      const pPos = this.cellCenter(piece.row, piece.col);
+      const pPos = this.piecePos(piece);
 
       if (def.id === "blackhole") {
         const pullR2 = ((def.pullRadius || 2.5) * cellSize) ** 2;
@@ -559,11 +723,14 @@ export class GameScene extends Phaser.Scene {
       if (def.id === "teleport") {
         const target = this._findHeroForTrap(piece, true);
         if (!target) continue;
-        const rows = (def.teleportRows || 5) + piece.level;
-        target.container.y = Math.max(GAME_CONFIG.grid.offsetY, target.container.y - rows * cellSize);
-        spawnTeleportEffect(this, pPos.x, pPos.y);
-        spawnTeleportEffect(this, target.container.x, target.container.y);
-        floatText(this, pPos.x, pPos.y - 20, t("game_teleport"), "#cc88ff", 14);
+        // Щит паладина блокирует и телепорт (это тоже эффект ловушки).
+        if (!this._shieldBlocks(target)) {
+          const rows = (def.teleportRows || 5) + piece.level;
+          target.container.y = Math.max(GAME_CONFIG.grid.offsetY, target.container.y - rows * cellSize);
+          spawnTeleportEffect(this, pPos.x, pPos.y);
+          spawnTeleportEffect(this, target.container.x, target.container.y);
+          floatText(this, pPos.x, pPos.y - 20, t("game_teleport"), "#cc88ff", 14);
+        }
         audio.trapHit();
         piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
       }
@@ -601,11 +768,13 @@ export class GameScene extends Phaser.Scene {
         if (!target) continue;
         const isBoss = target.isBoss || false;
         const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
-        this.damageHero(target, dmg, isCrit);
-        target.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
-        target.poisonEndTime = time + (def.poisonDuration || 5000);
-        target.poisonTimer = 0;
-        spawnPoisonCloud(this, pPos.x, pPos.y);
+        // Яд накладывается, только если удар ловушки не заблокирован щитом.
+        if (this.damageHero(target, dmg, isCrit) && !target.dead) {
+          target.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
+          target.poisonEndTime = time + (def.poisonDuration || 5000);
+          target.poisonTimer = 0;
+          spawnPoisonCloud(this, pPos.x, pPos.y);
+        }
         audio.trapHit();
         piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
       }
@@ -614,8 +783,8 @@ export class GameScene extends Phaser.Scene {
       if (!target) continue;
       const isBoss = target.isBoss || false;
       const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
-      this.damageHero(target, dmg, isCrit);
-      if (def.slowFactor) {
+      const applied = this.damageHero(target, dmg, isCrit);
+      if (applied && !target.dead && def.slowFactor) {
         target.speedMultiplier = def.slowFactor;
         target.slowUntil = time + (def.slowDuration || 2000) * (saveManager.data.slowBonus ?? 1);
       }
@@ -625,18 +794,8 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  _findHeroInCell(row, col) {
-    const list = this.heroesByCol[col];
-    for (const h of list) if (!h.dead && h.row === row) return h;
-    return null;
-  }
-  _findHeroInCellIgnoreImmune(row, col) {
-    const list = this.heroesByCol[col];
-    for (const h of list) if (!h.dead && !h.disableTraps && h.row === row) return h;
-    return null;
-  }
   _findHeroForTrap(piece, respectImmunity = true) {
-    const def = TOOL_DEFS[piece.type], pos = this.cellCenter(piece.row, piece.col);
+    const def = TOOL_DEFS[piece.type], pos = this.piecePos(piece);
     const range = getToolRange(def, saveManager.data) * GAME_CONFIG.grid.cell;
     let target = null, best = Infinity;
     for (const hero of this.heroes) {
@@ -649,12 +808,11 @@ export class GameScene extends Phaser.Scene {
 
   processMonsters(time, delta) {
     const cellSize = GAME_CONFIG.grid.cell;
-    for (const piece of this.gridItems.values()) {
-      if (piece.kind !== "monster") continue;
+    for (const piece of this.piecesOfKind("monster")) {
       piece.cooldown -= delta;
       if (piece.cooldown > 0) continue;
       const def = TOOL_DEFS[piece.type];
-      const pPos = this.cellCenter(piece.row, piece.col);
+      const pPos = this.piecePos(piece);
       const maxDist = getToolRange(def, saveManager.data) * cellSize;
       const maxDist2 = maxDist * maxDist;
       const buffMult = (piece._buffMult || 1) * (piece._archmageDebuffUntil > time ? 0.5 : 1);
@@ -676,7 +834,7 @@ export class GameScene extends Phaser.Scene {
         // AoE: крит один раз для группы (без учёта босса)
         const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, false);
         const buffedDmg = Math.floor(dmg * buffMult);
-        for (const tgt of targets) this.damageHero(tgt, buffedDmg, isCrit);
+        for (const tgt of targets) this.damageHero(tgt, buffedDmg, isCrit, "monster");
         spawnDragonBreath(this, pPos.x, pPos.y, farthestY);
         audio.monsterAttack();
         piece.cooldown = getMonsterCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
@@ -693,7 +851,7 @@ export class GameScene extends Phaser.Scene {
         // AoE: крит один раз для группы
         const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, false);
         const buffedDmg = Math.floor(dmg * buffMult);
-        for (const tgt of targets) this.damageHero(tgt, buffedDmg, isCrit);
+        for (const tgt of targets) this.damageHero(tgt, buffedDmg, isCrit, "monster");
         spawnDeathParticles(this, pPos.x, pPos.y, 0xff6348, 6);
         audio.monsterAttack();
         piece.cooldown = getMonsterCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
@@ -711,13 +869,13 @@ export class GameScene extends Phaser.Scene {
       const isBossTarget = target.isBoss;
       const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBossTarget, target.weaknessTool);
       const buffedDmg = Math.floor(dmg * buffMult);
-      this.damageHero(target, buffedDmg, isCrit);
+      this.damageHero(target, buffedDmg, isCrit, "monster");
 
       if (def.id === "dark_knight" && bestD2 < (cellSize * 1.2) ** 2) {
         const counterDmg = Math.floor((def.counterDamage || 20) * piece.level * (saveManager.data.monsterDamageBonus ?? 1));
         this.time.delayedCall(200, () => {
           if (!target.dead) {
-            this.damageHero(target, counterDmg);
+            this.damageHero(target, counterDmg, false, "monster");
             floatText(this, target.container.x, target.container.y - 35, t("game_counter"), "#ff8844", 12);
           }
         });
@@ -729,19 +887,20 @@ export class GameScene extends Phaser.Scene {
   }
 
   processNecromancerBuffs(delta) {
-    for (const p of this.gridItems.values()) if (p.kind === "monster") p._buffMult = 1;
+    const monsters = this.piecesOfKind("monster");
+    for (const p of monsters) p._buffMult = 1;
     const cellSize = GAME_CONFIG.grid.cell;
-    for (const necro of this.gridItems.values()) {
+    for (const necro of monsters) {
       if (necro.type !== "necromancer") continue;
       const def = TOOL_DEFS.necromancer;
       const buffR2 = ((def.buffRadius || 2) * cellSize) ** 2;
       const buffAmt = ((def.buffAmount || 0.3) + (saveManager.data.necroBonusExtra || 0)) * necro.level;
-      const nPos = this.cellCenter(necro.row, necro.col);
+      const nPos = this.piecePos(necro);
       necro.buffTimer = (necro.buffTimer || 0) + delta;
       if (necro.buffTimer >= 2000) { necro.buffTimer = 0; spawnNecromancerAura(this, nPos.x, nPos.y); }
-      for (const other of this.gridItems.values()) {
-        if (other === necro || other.kind !== "monster") continue;
-        const oPos = this.cellCenter(other.row, other.col);
+      for (const other of monsters) {
+        if (other === necro) continue;
+        const oPos = this.piecePos(other);
         if (distSq(oPos.x, oPos.y, nPos.x, nPos.y) <= buffR2) other._buffMult = (other._buffMult || 1) + buffAmt;
       }
     }
@@ -783,11 +942,11 @@ export class GameScene extends Phaser.Scene {
         if (hero.abilityTimer >= interval) {
           hero.abilityTimer = 0;
           let closest = null, best = Infinity;
-          for (const piece of this.gridItems.values()) if (piece.kind === "trap") {
-            const pos = this.cellCenter(piece.row, piece.col), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
+          for (const piece of this.piecesOfKind("trap")) {
+            const pos = this.piecePos(piece), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
             if (d < best && d < (GAME_CONFIG.grid.cell * 2) ** 2) { closest = piece; best = d; }
           }
-          if (closest) { this.removePiece(this.cellKey(closest.row, closest.col)); floatText(this, hero.container.x, hero.container.y - 35, t("game_dispel"), "#aabfff", 12); }
+          if (closest) { this.removePiece(closest); floatText(this, hero.container.x, hero.container.y - 35, t("game_dispel"), "#aabfff", 12); }
         }
       }
       if (hero.typeDef.monsterDebuffInterval) {
@@ -795,8 +954,8 @@ export class GameScene extends Phaser.Scene {
         if (hero.debuffTimer >= hero.typeDef.monsterDebuffInterval) {
           hero.debuffTimer = 0;
           let closest = null, best = Infinity;
-          for (const piece of this.gridItems.values()) if (piece.kind === "monster") {
-            const pos = this.cellCenter(piece.row, piece.col), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
+          for (const piece of this.piecesOfKind("monster")) {
+            const pos = this.piecePos(piece), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
             if (d < best && d < (GAME_CONFIG.grid.cell * 3) ** 2) { closest = piece; best = d; }
           }
           if (closest) { closest._archmageDebuffUntil = time + 3500; floatText(this, hero.container.x, hero.container.y - 35, t("game_curse"), "#cc88ff", 12); }
@@ -824,14 +983,27 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  damageHero(hero, amount, isCrit = false) {
-    if (!hero || hero.dead) return;
+  /** Щит паладина: блокирует заданное число эффектов ЛОВУШЕК (но не атак монстров). */
+  _shieldBlocks(hero) {
     if (hero.shieldHits > 0) {
       hero.shieldHits--;
       floatText(this, hero.container.x, hero.container.y - 28, t("game_shield_block"), "#ffd700", 14);
       audio.click();
-      return;
+      return true;
     }
+    return false;
+  }
+
+  /**
+   * Урон герою. source:
+   *  "trap" — удар ловушки (щит паладина блокирует первые shieldHits попаданий);
+   *  "monster" — атака монстра (щит не помогает — по дизайн-документу);
+   *  "poison" — тики яда (блокировка уже учтена при наложении).
+   * Возвращает true, если урон фактически нанесён.
+   */
+  damageHero(hero, amount, isCrit = false, source = "trap") {
+    if (!hero || hero.dead) return false;
+    if (source === "trap" && this._shieldBlocks(hero)) return false;
     hero.hp -= amount;
 
     const color = isCrit ? "#ffff00" : "#ff8f8f";
@@ -846,6 +1018,7 @@ export class GameScene extends Phaser.Scene {
     hero.graphic.setAlpha(0.4);
     this.time.delayedCall(80, () => { if (!hero.dead) hero.graphic.setAlpha(1); });
     if (hero.hp <= 0) this.killHero(hero);
+    return true;
   }
 
   killHero(hero) {
@@ -936,15 +1109,11 @@ export class GameScene extends Phaser.Scene {
     hero.container.destroy(true);
     const i = this.heroes.indexOf(hero);
     if (i !== -1) this.heroes.splice(i, 1);
-    const list = this.heroesByCol[hero.col];
-    const j = list.indexOf(hero);
-    if (j !== -1) list.splice(j, 1);
   }
 
   clearHeroes() {
     for (const h of this.heroes) h.container.destroy(true);
     this.heroes.length = 0;
-    for (const list of this.heroesByCol) list.length = 0;
   }
 
   checkWaveEnd() {
@@ -1009,13 +1178,22 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  abortWaveAndRollback() {
+  abortWaveAndRollback(rebuildBoard = true) {
     if ((!this.waveInProgress && !this.pendingReward) || !this._runSnapshot) return;
     saveManager.data = JSON.parse(JSON.stringify(this._runSnapshot));
     saveManager.recalcBonuses();
     this.crystalHP = saveManager.data.crystalHP;
     this.waveInProgress = false; this.pendingReward = null;
     this.clearHeroes();
+    if (rebuildBoard) {
+      // Доска сцены должна соответствовать откатанному сейву
+      // (погибшие за прерванную волну монстры возвращаются, добыча отменяется).
+      this._clearBoard();
+      this.restoreBoard();
+      this.startWaveButton?.setLabel(t("game_start_wave"));
+      this.helpText?.setText(t("game_prepare_next"));
+      this.refreshUI(true);
+    }
     saveManager.save();
   }
 
@@ -1067,7 +1245,45 @@ export class GameScene extends Phaser.Scene {
     this.helpText.setText(t("game_prepare_next"));
     achievements.checkAll();
     await this.persistProgress();
-    if (mult === 1) await adManager.showFullscreen(this);
+    // Интро главы важнее: если оно показано, межволновую рекламу пропускаем,
+    // чтобы полноэкранная реклама не перекрывала сюжетный попап.
+    if (mult === 1 && !this._maybeShowChapterIntro()) await adManager.showFullscreen(this);
+  }
+
+  // ============================
+  // СЮЖЕТНЫЕ ГЛАВЫ
+  // ============================
+
+  /** Показывает интро текущей главы один раз. Возвращает true, если попап открыт. */
+  _maybeShowChapterIntro() {
+    if (this.isEndless || this.popupObjects.length) return false;
+    const ch = getChapterForWave(saveManager.data.wave);
+    if (!ch || saveManager.data.seenChapters.includes(ch.id)) return false;
+    saveManager.data.seenChapters.push(ch.id);
+    saveManager.saveThrottled();
+    this._openChapterPopup(ch);
+    return true;
+  }
+
+  _openChapterPopup(ch) {
+    this.closePopup();
+    const D = 500;
+    const accent = ch.accent ?? 0x00fff5;
+    const overlay = this.add.rectangle(270, 480, 540, 960, 0x000000, 0.74).setInteractive().setDepth(D);
+    const panel = this.add.rectangle(270, 450, 460, 380, 0x1f2440).setStrokeStyle(3, accent).setDepth(D + 1);
+    const title = this.add.text(270, 325, t(ch.titleKey), {
+      fontFamily: "Arial", fontSize: "22px", color: "#ffffff", fontStyle: "bold",
+      align: "center", wordWrap: { width: 400 },
+    }).setOrigin(0.5).setDepth(D + 2);
+    const body = this.add.text(270, 445, t(ch.storyKey), {
+      fontFamily: "Arial", fontSize: "15px", color: "#dce3ff",
+      align: "center", wordWrap: { width: 400 }, lineSpacing: 7,
+    }).setOrigin(0.5).setDepth(D + 2);
+    const okBtn = createButton(this, 270, 585, 220, 50, t("chapter_continue"), () => {
+      audio.waveStart();
+      this.closePopup();
+    }, { depth: D + 3, textSize: "16px" });
+    this.popupObjects.push(overlay, panel, title, body, okBtn.bg, okBtn.txt);
   }
 
   openGameOverPopup() {
@@ -1093,7 +1309,7 @@ export class GameScene extends Phaser.Scene {
         t("endless_reward", souls),
       ].join("\n"), { fontFamily: "Arial", fontSize: "16px", color: "#f1dbe4", align: "center", lineSpacing: 5 }).setOrigin(0.5).setDepth(D + 2);
       const againBtn = createButton(this, 165, 540, 160, 52, t("endless_again"), async () => {
-        this.clearHeroes(); this.gridItems.clear(); this.gameOverState = false;
+        this.clearHeroes(); this._clearBoard(); this.gameOverState = false;
         this._skipShutdownPersist = true;
         this.scene.restart({ mode: "endless" });
       }, { textSize: "15px", depth: D + 3 });
@@ -1112,7 +1328,7 @@ export class GameScene extends Phaser.Scene {
       t("popup_reboot_hint"),
     ].join("\n"), { fontFamily: "Arial", fontSize: "15px", color: "#f1dbe4", align: "center", lineSpacing: 5 }).setOrigin(0.5).setDepth(D + 2);
     const rebootBtn = createButton(this, 165, 540, 160, 52, t("popup_reboot"), async () => {
-      this.clearHeroes(); this.gridItems.clear(); this.gameOverState = false;
+      this.clearHeroes(); this._clearBoard(); this.gameOverState = false;
       await saveManager.reset();
       this.crystalHP = saveManager.data.crystalHP;
       this._skipShutdownPersist = true;
@@ -1165,7 +1381,7 @@ export class GameScene extends Phaser.Scene {
     }
     saveManager.data.crystalHP = this.crystalHP;
     saveManager.data.board = [];
-    for (const i of this.gridItems.values()) saveManager.data.board.push({ row: i.row, col: i.col, kind: i.kind, type: i.type, level: i.level });
+    for (const i of this.iterPieces()) saveManager.data.board.push({ row: i.row, col: i.col, kind: i.kind, type: i.type, level: i.level });
     await saveManager.save();
   }
 

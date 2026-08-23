@@ -22,13 +22,13 @@ export const TOOL_DEFS = {
   teleport: { id: "teleport", labelKey: "unit_teleport", descKey: "unit_teleport_desc", kind: "trap", label: "Телепорт", icon: "🌀", cost: 100, damage: 0, cooldown: 4000, color: 0xa855f7, mergeColors: [0xa855f7, 0xb86ef8, 0xc884f9, 0xd89afa, 0xe8b0fb], description: "Отбрасывает наверх.", unlockWave: 35, teleportRows: 5 },
   blackhole: { id: "blackhole", labelKey: "unit_blackhole", descKey: "unit_blackhole_desc", kind: "trap", label: "Чёрн. дыра", icon: "🕳️", cost: 150, damage: 20, cooldown: 3000, color: 0x2d1b69, mergeColors: [0x2d1b69, 0x3d2b79, 0x4d3b89, 0x5d4b99, 0x7d6bb9], description: "Притягивает + AoE.", unlockWave: 50, pullRadius: 2.5, aoeDamage: 15 },
 
-  slime: { id: "slime", labelKey: "unit_slime", descKey: "unit_slime_desc", kind: "monster", label: "Слайм", icon: "S", cost: 45, damage: 18, cooldown: 900, range: 2.2, color: 0x57ffb8, mergeColors: [0x57ffb8, 0x44ff99, 0x33ff77, 0x22ff55, 0x00ff33], description: "Ближний бой." },
-  skeleton: { id: "skeleton", labelKey: "unit_skeleton", descKey: "unit_skeleton_desc", kind: "monster", label: "Скелет", icon: "💀", cost: 70, damage: 30, cooldown: 1100, range: 1.8, color: 0xe8dcc8, mergeColors: [0xe8dcc8, 0xf0e8d8, 0xf8f0e0, 0xffcc66, 0xff6600], description: "Сильный ближний бой.", unlockWave: 8 },
-  goblin: { id: "goblin", labelKey: "unit_goblin", descKey: "unit_goblin_desc", kind: "monster", label: "Гоблин", icon: "G", cost: 90, damage: 22, cooldown: 600, range: 3.5, color: 0x88cc44, mergeColors: [0x88cc44, 0x99dd44, 0xaaee44, 0xccff00, 0xffff00], description: "Дальний, быстрый.", unlockWave: 15 },
-  elemental: { id: "elemental", labelKey: "unit_elemental", descKey: "unit_elemental_desc", kind: "monster", label: "Элементаль", icon: "🔥", cost: 110, damage: 28, cooldown: 1300, range: 2.0, color: 0xff6348, mergeColors: [0xff6348, 0xff7b5e, 0xff9374, 0xffab8a, 0xffc3a0], description: "AoE урон в 2 клетках.", unlockWave: 20, aoeRange: 2 },
-  dark_knight: { id: "dark_knight", labelKey: "unit_dark_knight", descKey: "unit_dark_knight_desc", kind: "monster", label: "Тёмн. рыцарь", icon: "⚔", cost: 140, damage: 45, cooldown: 1500, range: 1.5, color: 0x2c3e50, mergeColors: [0x2c3e50, 0x34495e, 0x3d566e, 0x4a6480, 0x5d7a96], description: "Танк + контратака.", unlockWave: 30, counterDamage: 20 },
-  necromancer: { id: "necromancer", labelKey: "unit_necromancer", descKey: "unit_necromancer_desc", kind: "monster", label: "Некромант", icon: "👻", cost: 180, damage: 15, cooldown: 2000, range: 3.0, color: 0x6c3483, mergeColors: [0x6c3483, 0x7d3c98, 0x8e44ad, 0xa04cbf, 0xb355d1], description: "Усиливает соседей.", unlockWave: 40, buffRadius: 2, buffAmount: 0.3 },
-  dragon: { id: "dragon", labelKey: "unit_dragon", descKey: "unit_dragon_desc", kind: "monster", label: "Дракон", icon: "🐉", cost: 250, damage: 60, cooldown: 2200, range: 4.0, color: 0x8b0000, mergeColors: [0x8b0000, 0xa01010, 0xb52020, 0xcc3030, 0xff4444], description: "Огненное дыхание.", unlockWave: 55, breathWidth: 1 },
+  slime: { id: "slime", labelKey: "unit_slime", descKey: "unit_slime_desc", kind: "monster", label: "Слайм", icon: "S", cost: 45, damage: 18, cooldown: 900, range: 2.2, monsterHP: 90, color: 0x57ffb8, mergeColors: [0x57ffb8, 0x44ff99, 0x33ff77, 0x22ff55, 0x00ff33], description: "Ближний бой." },
+  skeleton: { id: "skeleton", labelKey: "unit_skeleton", descKey: "unit_skeleton_desc", kind: "monster", label: "Скелет", icon: "💀", cost: 70, damage: 30, cooldown: 1100, range: 1.8, monsterHP: 150, color: 0xe8dcc8, mergeColors: [0xe8dcc8, 0xf0e8d8, 0xf8f0e0, 0xffcc66, 0xff6600], description: "Сильный ближний бой.", unlockWave: 8 },
+  goblin: { id: "goblin", labelKey: "unit_goblin", descKey: "unit_goblin_desc", kind: "monster", label: "Гоблин", icon: "G", cost: 90, damage: 22, cooldown: 600, range: 3.5, monsterHP: 80, color: 0x88cc44, mergeColors: [0x88cc44, 0x99dd44, 0xaaee44, 0xccff00, 0xffff00], description: "Дальний, быстрый.", unlockWave: 15 },
+  elemental: { id: "elemental", labelKey: "unit_elemental", descKey: "unit_elemental_desc", kind: "monster", label: "Элементаль", icon: "🔥", cost: 110, damage: 28, cooldown: 1300, range: 2.0, monsterHP: 140, color: 0xff6348, mergeColors: [0xff6348, 0xff7b5e, 0xff9374, 0xffab8a, 0xffc3a0], description: "AoE урон в 2 клетках.", unlockWave: 20, aoeRange: 2 },
+  dark_knight: { id: "dark_knight", labelKey: "unit_dark_knight", descKey: "unit_dark_knight_desc", kind: "monster", label: "Тёмн. рыцарь", icon: "⚔", cost: 140, damage: 45, cooldown: 1500, range: 1.5, monsterHP: 240, color: 0x2c3e50, mergeColors: [0x2c3e50, 0x34495e, 0x3d566e, 0x4a6480, 0x5d7a96], description: "Танк + контратака.", unlockWave: 30, counterDamage: 20 },
+  necromancer: { id: "necromancer", labelKey: "unit_necromancer", descKey: "unit_necromancer_desc", kind: "monster", label: "Некромант", icon: "👻", cost: 180, damage: 15, cooldown: 2000, range: 3.0, monsterHP: 110, color: 0x6c3483, mergeColors: [0x6c3483, 0x7d3c98, 0x8e44ad, 0xa04cbf, 0xb355d1], description: "Усиливает соседей.", unlockWave: 40, buffRadius: 2, buffAmount: 0.3 },
+  dragon: { id: "dragon", labelKey: "unit_dragon", descKey: "unit_dragon_desc", kind: "monster", label: "Дракон", icon: "🐉", cost: 250, damage: 60, cooldown: 2200, range: 4.0, monsterHP: 320, size: 2, color: 0x8b0000, mergeColors: [0x8b0000, 0xa01010, 0xb52020, 0xcc3030, 0xff4444], description: "Огненное дыхание. 2×2.", unlockWave: 55, breathWidth: 1.2 },
 };
 
 // ============================
@@ -36,15 +36,16 @@ export const TOOL_DEFS = {
 // ============================
 
 export const HERO_TYPES = {
-  peasant: { id: "peasant", labelKey: "hero_peasant", label: "Крестьянин", hpMult: 1, speedMult: 1.1, goldReward: 4, soulReward: 2, isBoss: false, minWave: 1, weight: 10, scale: 1 },
-  warrior: { id: "warrior", labelKey: "hero_warrior", label: "Воин", hpMult: 1.5, speedMult: 0.95, goldReward: 6, soulReward: 3, isBoss: false, minWave: 3, weight: 8, scale: 1 },
-  mage: { id: "mage", labelKey: "hero_mage", label: "Маг", hpMult: 0.8, speedMult: 0.85, goldReward: 8, soulReward: 5, trapDestroyInterval: 5000, isBoss: false, minWave: 6, weight: 6, scale: 1 },
-  thief: { id: "thief", labelKey: "hero_thief", label: "Вор", hpMult: 0.7, speedMult: 1.6, goldReward: 7, soulReward: 4, isBoss: false, minWave: 8, weight: 5, scale: 0.9 },
-  knight: { id: "knight", labelKey: "hero_knight", label: "Рыцарь", hpMult: 2.2, speedMult: 0.7, goldReward: 10, soulReward: 6, isBoss: false, minWave: 10, weight: 5, scale: 1.1 },
-  healer: { id: "healer", labelKey: "hero_healer", label: "Целитель", hpMult: 1.0, speedMult: 0.9, goldReward: 9, soulReward: 5, healAmount: 0.1, healInterval: 3000, isBoss: false, minWave: 12, weight: 4, scale: 1 },
-  paladin: { id: "paladin", labelKey: "hero_paladin", label: "Паладин", hpMult: 6, speedMult: 0.5, goldReward: 40, soulReward: 25, isBoss: true, minWave: 10, bossInterval: 5, scale: 1.5, shieldHits: 3, weaknessTool: "poison" },
-  archmage: { id: "archmage", labelKey: "hero_archmage", label: "Архимаг", hpMult: 8, speedMult: 0.45, goldReward: 70, soulReward: 45, isBoss: true, minWave: 20, bossInterval: 5, scale: 1.5, disableTraps: true, monsterDebuffInterval: 4000, weaknessTool: "fire_tile" },
-  king: { id: "king", labelKey: "hero_king", label: "Король", hpMult: 15, speedMult: 0.35, goldReward: 150, soulReward: 100, isBoss: true, minWave: 30, bossInterval: 10, scale: 1.8, summonInterval: 4000, summonCount: 2, weaknessTool: "lightning" },
+  // Герои сражаются с монстрами: attackMult=0 — не атакует (целитель).
+  peasant: { id: "peasant", labelKey: "hero_peasant", label: "Крестьянин", hpMult: 1, speedMult: 1.1, goldReward: 4, soulReward: 2, isBoss: false, minWave: 1, weight: 10, scale: 1, attackMult: 1, attackInterval: 1100, attackRange: 1.35 },
+  warrior: { id: "warrior", labelKey: "hero_warrior", label: "Воин", hpMult: 1.5, speedMult: 0.95, goldReward: 6, soulReward: 3, isBoss: false, minWave: 3, weight: 8, scale: 1, attackMult: 1.3, attackInterval: 1100, attackRange: 1.35 },
+  mage: { id: "mage", labelKey: "hero_mage", label: "Маг", hpMult: 0.8, speedMult: 0.85, goldReward: 8, soulReward: 5, trapDestroyInterval: 5000, isBoss: false, minWave: 6, weight: 6, scale: 1, attackMult: 1.1, attackInterval: 1300, attackRange: 1.9 },
+  thief: { id: "thief", labelKey: "hero_thief", label: "Вор", hpMult: 0.7, speedMult: 1.6, goldReward: 7, soulReward: 4, isBoss: false, minWave: 8, weight: 5, scale: 0.9, attackMult: 0.8, attackInterval: 700, attackRange: 1.35 },
+  knight: { id: "knight", labelKey: "hero_knight", label: "Рыцарь", hpMult: 2.2, speedMult: 0.7, goldReward: 10, soulReward: 6, isBoss: false, minWave: 10, weight: 5, scale: 1.1, attackMult: 1.6, attackInterval: 1400, attackRange: 1.35 },
+  healer: { id: "healer", labelKey: "hero_healer", label: "Целитель", hpMult: 1.0, speedMult: 0.9, goldReward: 9, soulReward: 5, healAmount: 0.1, healInterval: 3000, isBoss: false, minWave: 12, weight: 4, scale: 1, attackMult: 0 },
+  paladin: { id: "paladin", labelKey: "hero_paladin", label: "Паладин", hpMult: 6, speedMult: 0.5, goldReward: 40, soulReward: 25, isBoss: true, minWave: 10, bossInterval: 5, scale: 1.5, shieldHits: 3, weaknessTool: "poison", attackMult: 4, attackInterval: 1300, attackRange: 1.6 },
+  archmage: { id: "archmage", labelKey: "hero_archmage", label: "Архимаг", hpMult: 8, speedMult: 0.45, goldReward: 70, soulReward: 45, isBoss: true, minWave: 20, bossInterval: 5, scale: 1.5, disableTraps: true, monsterDebuffInterval: 4000, weaknessTool: "fire_tile", attackMult: 5, attackInterval: 1500, attackRange: 2.4 },
+  king: { id: "king", labelKey: "hero_king", label: "Король", hpMult: 15, speedMult: 0.35, goldReward: 150, soulReward: 100, isBoss: true, minWave: 30, bossInterval: 10, scale: 1.8, summonInterval: 4000, summonCount: 2, weaknessTool: "lightning", attackMult: 7, attackInterval: 1600, attackRange: 1.8 },
 };
 
 /** Бонус урона по слабости босса (+25%). */
@@ -467,6 +468,26 @@ export function getEndlessBossType(wave) {
 }
 
 // ============================
+// ГЛАВЫ КАМПАНИИ (СЮЖЕТ)
+// ============================
+
+// Интро каждой главы показывается один раз при достижении её первой волны.
+export const CHAPTERS = [
+  { id: "ch1", startWave: 1,  titleKey: "chapter_1_title", storyKey: "chapter_1_story", accent: 0x57ffb8 },
+  { id: "ch2", startWave: 11, titleKey: "chapter_2_title", storyKey: "chapter_2_story", accent: 0x74b9ff },
+  { id: "ch3", startWave: 26, titleKey: "chapter_3_title", storyKey: "chapter_3_story", accent: 0xcc88ff },
+  { id: "ch4", startWave: 51, titleKey: "chapter_4_title", storyKey: "chapter_4_story", accent: 0xff6b35 },
+  { id: "ch5", startWave: 76, titleKey: "chapter_5_title", storyKey: "chapter_5_story", accent: 0xffd700 },
+];
+
+/** Глава, к которой относится волна (последняя со startWave <= wave). */
+export function getChapterForWave(wave) {
+  let current = CHAPTERS[0] || null;
+  for (const ch of CHAPTERS) if (wave >= ch.startWave) current = ch;
+  return current;
+}
+
+// ============================
 // ДОСТИЖЕНИЯ
 // ============================
 
@@ -627,6 +648,72 @@ export function getToolRange(toolDef, save) {
     ? (save.trapRangeBonus ?? 1)
     : (save.monsterRangeBonus ?? 1);
   return (toolDef.range || 2) * bonus;
+}
+
+// ============================
+// БОЕВАЯ СИСТЕМА: HP монстров, атаки героев, фигуры 2×2
+// ============================
+
+/** HP монстра по дизайн-документу: монстры могут погибнуть от атак героев. */
+export function getMonsterMaxHP(toolDef, level = 1) {
+  return Math.floor((toolDef.monsterHP || 80) * level);
+}
+
+/** Урон героя по монстру за один удар (растёт с номером волны). */
+export function getHeroAttackDamage(heroDef, wave) {
+  const mult = heroDef.attackMult ?? 1;
+  if (mult <= 0) return 0;
+  return Math.max(1, Math.floor((8 + wave * 1.5) * mult));
+}
+
+/** Размер фигуры в клетках (дракон — 2×2, остальные — 1×1). */
+export function getToolSize(toolDef) { return toolDef.size || 1; }
+
+/** Клетки, занимаемые фигурой при якоре (row, col) — верхний левый угол. */
+export function getToolFootprint(toolDef, row, col) {
+  const size = getToolSize(toolDef);
+  const cells = [];
+  for (let dr = 0; dr < size; dr++) {
+    for (let dc = 0; dc < size; dc++) cells.push({ row: row + dr, col: col + dc });
+  }
+  return cells;
+}
+
+/** Фигура целиком помещается в сетку. */
+export function isFootprintInBounds(toolDef, row, col, grid = GAME_CONFIG.grid) {
+  const size = getToolSize(toolDef);
+  return Number.isInteger(row) && Number.isInteger(col)
+    && row >= 0 && col >= 0 && row + size <= grid.rows && col + size <= grid.cols;
+}
+
+/**
+ * Валидация доски из ненадёжного сейва.
+ * Правила: клетка хранит максимум одну ловушку и одного монстра (комбо),
+ * дракон занимает блок 2×2. Некорректные записи и пересечения отбрасываются.
+ */
+export function validateBoard(rawBoard, grid = GAME_CONFIG.grid, maxEntries = 80) {
+  const out = [];
+  if (!Array.isArray(rawBoard)) return out;
+  const occupied = new Set(); // `${row}_${col}_${kind}`
+  for (const item of rawBoard.slice(0, maxEntries)) {
+    if (!item || typeof item !== "object") continue;
+    const def = TOOL_DEFS[item.type];
+    if (!def) continue;
+    const row = item.row, col = item.col;
+    if (!isFootprintInBounds(def, row, col, grid)) continue;
+    const level = Number.isFinite(item.level)
+      ? Math.min(MAX_MERGE_LEVEL, Math.max(1, Math.floor(item.level)))
+      : 1;
+    const cells = getToolFootprint(def, row, col);
+    let clash = false;
+    for (const cell of cells) {
+      if (occupied.has(`${cell.row}_${cell.col}_${def.kind}`)) { clash = true; break; }
+    }
+    if (clash) continue;
+    for (const cell of cells) occupied.add(`${cell.row}_${cell.col}_${def.kind}`);
+    out.push({ row, col, kind: def.kind, type: def.id, level });
+  }
+  return out;
 }
 
 export function isToolUnlocked(toolDef, wave) {
