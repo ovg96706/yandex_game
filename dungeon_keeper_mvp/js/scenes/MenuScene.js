@@ -1,7 +1,7 @@
 import { saveManager } from "../saveManager.js";
 import { SDK } from "../sdk.js";
 import { createButton } from "../ui.js";
-import { canClaimDaily, canSpinWheelFree, shouldResetStreak, ACHIEVEMENTS } from "../config.js";
+import { canClaimDaily, canSpinWheelFree, shouldResetStreak, ACHIEVEMENTS, getOfflineIncome } from "../config.js";
 import { achievements } from "../achievements.js";
 import { audio } from "../audio.js";
 import { t } from "../i18n.js";
@@ -20,6 +20,18 @@ export class MenuScene extends Phaser.Scene {
     if (shouldResetStreak(saveManager.data)) {
       saveManager.data.dailyStreak = 0;
       saveManager.save();
+    }
+
+    // Offline income is granted once on returning to the menu, then immediately timestamped.
+    const offline = getOfflineIncome(saveManager.data, Date.now() - (saveManager.data.offlineLastAt || Date.now()));
+    if (offline.gold || offline.souls) {
+      saveManager.data.gold += offline.gold;
+      saveManager.data.souls += offline.souls;
+      saveManager.save();
+      this.time.delayedCall(250, () => this._showOfflineReward(offline));
+    } else {
+      saveManager.data.offlineLastAt = Date.now();
+      saveManager.saveThrottled();
     }
 
     // Запуск музыки (если включена)
@@ -120,5 +132,14 @@ export class MenuScene extends Phaser.Scene {
     const badge = this.add.circle(x, y, 8, 0xff3333).setStrokeStyle(2, 0xffffff);
     this.add.text(x, y, "!", { fontFamily: "Arial", fontSize: "11px", color: "#ffffff", fontStyle: "bold" }).setOrigin(0.5);
     this.tweens.add({ targets: badge, scaleX: 1.3, scaleY: 1.3, yoyo: true, repeat: -1, duration: 500 });
+  }
+
+  _showOfflineReward(reward) {
+    const d = 900;
+    const overlay = this.add.rectangle(270, 480, 540, 960, 0x000000, .72).setInteractive().setDepth(d);
+    const panel = this.add.rectangle(270, 440, 400, 230, 0x242448).setStrokeStyle(3, 0x57ffb8).setDepth(d + 1);
+    const title = this.add.text(270, 365, "Пока тебя не было…", { fontFamily: "Arial", fontSize: "24px", color: "#ffffff", fontStyle: "bold" }).setOrigin(.5).setDepth(d + 2);
+    const text = this.add.text(270, 430, `Подземелье работало ${reward.minutes} мин.\n+${reward.gold}🪙  +${reward.souls}💀`, { fontFamily: "Arial", fontSize: "18px", color: "#7effa7", align: "center" }).setOrigin(.5).setDepth(d + 2);
+    const ok = createButton(this, 270, 520, 180, 48, "ЗАБРАТЬ", () => { overlay.destroy(); panel.destroy(); title.destroy(); text.destroy(); ok.destroy(); }, { depth: d + 3, textSize: "16px" });
   }
 }

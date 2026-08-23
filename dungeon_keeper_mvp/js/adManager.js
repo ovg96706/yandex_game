@@ -37,7 +37,7 @@ class AdManager {
       scene?.resumeAfterAd?.();
       this._showingFullscreen = false;
     }
-    if (result.shown || result.mock) this.lastFullscreenAt = now;
+    if (result?.shown) this.lastFullscreenAt = now;
     return result;
   }
 }

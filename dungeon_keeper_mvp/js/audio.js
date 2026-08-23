@@ -28,7 +28,7 @@ class AudioManager {
   }
 
   init() {
-    if (this.initialized) return;
+    if (this.initialized) { this.resume(); return; }
     try {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this.sfxGain = this.ctx.createGain();
@@ -42,10 +42,10 @@ class AudioManager {
     }
   }
 
-  ensure() {
-    if (!this.initialized) this.init();
-    if (this.ctx?.state === "suspended") this.ctx.resume().catch(() => {});
-  }
+  resume() { if (this.ctx?.state === "suspended") return this.ctx.resume().catch(() => {}); return Promise.resolve(); }
+  ensure() { if (!this.initialized) this.init(); else this.resume(); }
+  // Must be called directly from a user gesture on browsers with autoplay restrictions.
+  unlock() { this.ensure(); return this.resume(); }
 
   _applyGains() {
     if (this.sfxGain) this.sfxGain.gain.value = this.sfxEnabled ? this.sfxVolume : 0;
@@ -193,18 +193,17 @@ class AudioManager {
         gain.gain.linearRampToValueAtTime(0, now + i * beat + beat * 0.9);
         osc.connect(gain);
         gain.connect(this.musicGain);
+        osc.onended = () => { try { osc.disconnect(); gain.disconnect(); } catch (e) {} };
         osc.start(now + i * beat);
         osc.stop(now + i * beat + beat);
-        this._musicNodes.push(osc, gain);
+        this._musicNodes.push(osc);
       }
     }
 
     // Планируем следующую итерацию
     this._musicTimer = setTimeout(() => {
-      // Чистим старые ноды
-      this._musicNodes = this._musicNodes.filter(n => {
-        try { return n.playbackState !== "finished"; } catch { return false; }
-      });
+      // All oscillators from this phrase have ended and disconnected via onended.
+      this._musicNodes.length = 0;
       this._scheduleMusicLoop();
     }, loopLen * 1000);
   }

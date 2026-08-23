@@ -38,12 +38,12 @@ export const TOOL_DEFS = {
 export const HERO_TYPES = {
   peasant: { id: "peasant", labelKey: "hero_peasant", label: "Крестьянин", hpMult: 1, speedMult: 1.1, goldReward: 4, soulReward: 2, isBoss: false, minWave: 1, weight: 10, scale: 1 },
   warrior: { id: "warrior", labelKey: "hero_warrior", label: "Воин", hpMult: 1.5, speedMult: 0.95, goldReward: 6, soulReward: 3, isBoss: false, minWave: 3, weight: 8, scale: 1 },
-  mage: { id: "mage", labelKey: "hero_mage", label: "Маг", hpMult: 0.8, speedMult: 0.85, goldReward: 8, soulReward: 5, isBoss: false, minWave: 6, weight: 6, scale: 1 },
+  mage: { id: "mage", labelKey: "hero_mage", label: "Маг", hpMult: 0.8, speedMult: 0.85, goldReward: 8, soulReward: 5, trapDestroyInterval: 5000, isBoss: false, minWave: 6, weight: 6, scale: 1 },
   thief: { id: "thief", labelKey: "hero_thief", label: "Вор", hpMult: 0.7, speedMult: 1.6, goldReward: 7, soulReward: 4, isBoss: false, minWave: 8, weight: 5, scale: 0.9 },
   knight: { id: "knight", labelKey: "hero_knight", label: "Рыцарь", hpMult: 2.2, speedMult: 0.7, goldReward: 10, soulReward: 6, isBoss: false, minWave: 10, weight: 5, scale: 1.1 },
   healer: { id: "healer", labelKey: "hero_healer", label: "Целитель", hpMult: 1.0, speedMult: 0.9, goldReward: 9, soulReward: 5, healAmount: 0.1, healInterval: 3000, isBoss: false, minWave: 12, weight: 4, scale: 1 },
   paladin: { id: "paladin", labelKey: "hero_paladin", label: "Паладин", hpMult: 6, speedMult: 0.5, goldReward: 40, soulReward: 25, isBoss: true, minWave: 10, bossInterval: 5, scale: 1.5, shieldHits: 3 },
-  archmage: { id: "archmage", labelKey: "hero_archmage", label: "Архимаг", hpMult: 8, speedMult: 0.45, goldReward: 70, soulReward: 45, isBoss: true, minWave: 20, bossInterval: 5, scale: 1.5, disableTraps: true },
+  archmage: { id: "archmage", labelKey: "hero_archmage", label: "Архимаг", hpMult: 8, speedMult: 0.45, goldReward: 70, soulReward: 45, isBoss: true, minWave: 20, bossInterval: 5, scale: 1.5, disableTraps: true, monsterDebuffInterval: 4000 },
   king: { id: "king", labelKey: "hero_king", label: "Король", hpMult: 15, speedMult: 0.35, goldReward: 150, soulReward: 100, isBoss: true, minWave: 30, bossInterval: 10, scale: 1.8, summonInterval: 4000, summonCount: 2 },
 };
 
@@ -246,6 +246,15 @@ export const WHEEL_SECTORS = [
   { id: "jackpot", label: "🎁 ДЖЕКПОТ", color: 0xff00ff, gold: 1000, souls: 200, crystalHP: 10, weight: 2 },
 ];
 export const WHEEL_FREE_INTERVAL_MS = 4 * 60 * 60 * 1000;
+
+// Offline income is deliberately capped, so changing the device clock cannot create unbounded rewards.
+export const OFFLINE_MAX_MS = 8 * 60 * 60 * 1000;
+export function getOfflineIncome(save, elapsedMs) {
+  const minutes = Math.floor(Math.max(0, Math.min(elapsedMs, OFFLINE_MAX_MS)) / 60000);
+  const pieces = Array.isArray(save?.board) ? save.board.length : 0;
+  if (!minutes || !pieces) return { gold: 0, souls: 0, minutes };
+  return { gold: Math.floor(minutes * pieces * 0.5), souls: Math.floor(minutes * pieces * 0.2), minutes };
+}
 
 // ============================
 // ДОСТИЖЕНИЯ

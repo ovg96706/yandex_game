@@ -18,7 +18,7 @@ export class BootScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Инит аудио по первому клику
-    this.input.once("pointerdown", () => audio.init());
+    this.input.once("pointerdown", () => audio.unlock());
 
     this.initApp();
   }

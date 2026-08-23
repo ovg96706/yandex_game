@@ -32,20 +32,20 @@ class YandexSDKWrapper {
     catch (e) { console.warn("LoadingAPI error:", e); }
   }
 
-  async loadData() {
-    let local = null;
-    try { local = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) {}
+  async loadDataCandidates() {
+    let local = null, cloudData = null;
+    try { local = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { console.warn("Local save parse error", e); }
     if (this.player) {
-      try {
-        const cloud = await this.player.getData();
-        if (cloud?.[SAVE_KEY]) return JSON.parse(cloud[SAVE_KEY]);
-      } catch (e) { console.warn("Cloud load error:", e); }
+      try { const cloud = await this.player.getData(); cloudData = cloud?.[SAVE_KEY] ? JSON.parse(cloud[SAVE_KEY]) : null; }
+      catch (e) { console.warn("Cloud load error:", e); }
     }
-    return local;
+    return { local, cloud: cloudData };
   }
 
+  async loadData() { const { local, cloud } = await this.loadDataCandidates(); return cloud || local; }
+
   async saveData(data) {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) {}
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch (e) { console.warn("Local save error", e); }
     if (this.player) {
       try { await this.player.setData({ [SAVE_KEY]: JSON.stringify(data) }); }
       catch (e) { console.warn("Cloud save error:", e); }
@@ -53,32 +53,32 @@ class YandexSDKWrapper {
   }
 
   async showRewarded() {
-    if (!this.ysdk?.adv) { console.log("Rewarded mock"); return { rewarded: true, mock: true }; }
+    if (!this.ysdk?.adv) return { rewarded: false, unavailable: true };
     return new Promise((resolve) => {
-      let rewarded = false;
-      this.ysdk.adv.showRewardedVideo({
-        callbacks: {
-          onOpen: () => {},
-          onRewarded: () => { rewarded = true; },
-          onClose: () => resolve({ rewarded }),
-          onError: (e) => { console.warn(e); resolve({ rewarded: false, error: e }); },
-        },
-      });
+      let rewarded = false, settled = false;
+      const finish = (result) => { if (!settled) { settled = true; clearTimeout(timeout); resolve(result); } };
+      const timeout = setTimeout(() => finish({ rewarded: false, timeout: true }), 45000);
+      try {
+        this.ysdk.adv.showRewardedVideo({ callbacks: {
+          onRewarded: () => { rewarded = true; }, onClose: () => finish({ rewarded }),
+          onError: (e) => { console.warn(e); finish({ rewarded: false, error: e }); },
+        }});
+      } catch (e) { finish({ rewarded: false, error: e }); }
     });
   }
 
   async showFullscreen() {
-    if (!this.ysdk?.adv) { console.log("Fullscreen mock"); return { shown: false, mock: true }; }
+    if (!this.ysdk?.adv) return { shown: false, unavailable: true };
     return new Promise((resolve) => {
-      let opened = false;
-      this.ysdk.adv.showFullscreenAdv({
-        callbacks: {
-          onOpen: () => { opened = true; },
-          onClose: () => resolve({ shown: opened }),
-          onError: (e) => resolve({ shown: false, error: e }),
-          onOffline: () => resolve({ shown: false, offline: true }),
-        },
-      });
+      let opened = false, settled = false;
+      const finish = (result) => { if (!settled) { settled = true; clearTimeout(timeout); resolve(result); } };
+      const timeout = setTimeout(() => finish({ shown: false, timeout: true }), 45000);
+      try {
+        this.ysdk.adv.showFullscreenAdv({ callbacks: {
+          onOpen: () => { opened = true; }, onClose: () => finish({ shown: opened }),
+          onError: (e) => finish({ shown: false, error: e }), onOffline: () => finish({ shown: false, offline: true }),
+        }});
+      } catch (e) { finish({ shown: false, error: e }); }
     });
   }
 
@@ -93,6 +93,8 @@ class YandexSDKWrapper {
    * Отправить свой результат.
    */
   async submitScore(name, score) {
+    // Scores are generated entirely on the client. Do not publish an unverified score.
+    return this._submitLocal(name, score);
     if (this.leaderboards) {
       try {
         await this.leaderboards.setLeaderboardScore(name, score);
@@ -110,6 +112,8 @@ class YandexSDKWrapper {
    * Возвращает: { entries: [...], player: {rank, score, name, avatar} | null }
    */
   async getLeaderboard(name, topSize = 10) {
+    // Local-only until a server-side verification path exists.
+    return this._getLocal(name, topSize);
     if (this.leaderboards) {
       try {
         const result = await this.leaderboards.getLeaderboardEntries(name, {
@@ -178,21 +182,6 @@ class YandexSDKWrapper {
       if (score > list[existing].score) list[existing].score = score;
     } else {
       list.push({ uniqueID: myId, name: myName, score });
-    }
-
-    // Добавим фейковых игроков для наполнения (только первый раз)
-    if (list.length < 8) {
-      const fakeNames = ["Warlord", "Necromage", "Shadow", "Mystic", "Reaper", "Phantom", "Titan", "Frost"];
-      for (const n of fakeNames) {
-        if (!list.find(e => e.name === n)) {
-          list.push({
-            uniqueID: "bot_" + n,
-            name: n,
-            score: Math.max(1, score - Math.floor(Math.random() * 15) - 1)
-          });
-        }
-        if (list.length >= 12) break;
-      }
     }
 
     localStorage.setItem(key, JSON.stringify(list));
