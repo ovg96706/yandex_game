@@ -11,6 +11,8 @@ class AdManager {
   async showRewarded(scene) {
     if (this._showingRewarded) return { skipped: true };
     this._showingRewarded = true;
+    // Платформа должна знать, что активный геймплей прерван на время рекламы.
+    SDK.gameplayStop();
     scene?.pauseForAd?.();
     let result;
     try {
@@ -29,6 +31,7 @@ class AdManager {
       return { skipped: true };
     }
     this._showingFullscreen = true;
+    SDK.gameplayStop();
     scene?.pauseForAd?.();
     let result;
     try {

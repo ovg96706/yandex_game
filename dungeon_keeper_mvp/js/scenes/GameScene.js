@@ -5,10 +5,12 @@ import {
   toolLabel, toolDesc, heroLabel,
   computeDamage, getTrapCooldown, getMonsterCooldown, getToolRange,
   getToolFootprint, isFootprintInBounds, getMonsterMaxHP, getHeroAttackDamage,
+  getBurnEffect, getBlockDuration, getReviveHP,
   getChapterForWave,
   ENDLESS, getEndlessBossType,
 } from "../config.js";
 import { saveManager } from "../saveManager.js";
+import { SDK } from "../sdk.js";
 import { adManager } from "../adManager.js";
 import { createButton, floatText } from "../ui.js";
 import { audio } from "../audio.js";
@@ -77,6 +79,8 @@ export class GameScene extends Phaser.Scene {
     this._autoHealTimer = 0;
     this._runSnapshot = null;
     this._skipShutdownPersist = false;
+    // Кладбище текущей волны: монстры, убитые героями. Некромант поднимает их обратно.
+    this._graveyard = [];
 
     this._precomputeGrid();
     this._uiCache = { wave: -1, gold: -1, souls: -1, hp: -1, maxHp: -1 };
@@ -100,7 +104,16 @@ export class GameScene extends Phaser.Scene {
     // could be kept by leaving the scene and replaying the same wave.
     // В Бездне награды начисляются только в конце забега, поэтому откатывать нечего.
     this._visHandler = () => {
-      if (!document.hidden) return;
+      if (!document.hidden) {
+        // Возврат во вкладку: геймплей продолжается, только если волна идёт и не показывается реклама.
+        if (this._adInProgress) return;
+        this.adPaused = false;
+        if (this.waveInProgress) SDK.gameplayStart();
+        return;
+      }
+      // Скрытая вкладка — это не игровой процесс: сообщаем платформе и ставим сцену на паузу.
+      SDK.gameplayStop();
+      this.adPaused = true;
       if (this.isEndless) { saveManager.saveThrottled(); return; }
       if (this.waveInProgress || this.pendingReward) this.abortWaveAndRollback();
       else this.persistProgress();
@@ -108,6 +121,7 @@ export class GameScene extends Phaser.Scene {
     document.addEventListener("visibilitychange", this._visHandler);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      SDK.gameplayStop();
       document.removeEventListener("visibilitychange", this._visHandler);
       this.input.off("pointerdown", this.onPointerDown, this);
       this.input.off("pointermove", this.onPointerMove, this);
@@ -503,10 +517,12 @@ export class GameScene extends Phaser.Scene {
       ? (this.waveNo() % ENDLESS.bossEveryWaves === 0 ? getEndlessBossType(this.waveNo()) : null)
       : getBossForWave(saveManager.data.wave);
     this.waveGoldEarned = 0; this.waveSoulsEarned = 0; this.waveKills = 0;
+    this._graveyard.length = 0;
     const bl = this.bossType ? t("game_boss_marker", heroLabel(this.bossType)) : "";
     this.helpText.setText(t("game_wave_ongoing", this.waveNo()) + bl);
     this.startWaveButton.setLabel(t("game_wave_running"));
     audio.waveStart();
+    SDK.gameplayStart();
     if (this.bossType) this.time.delayedCall(500, () => spawnBossWarning(this, this.bossType));
   }
 
@@ -538,6 +554,7 @@ export class GameScene extends Phaser.Scene {
       disableTraps: td.disableTraps || false, weaknessTool: td.weaknessTool || null,
       summonTimer: 0, healTimer: 0,
       poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0,
+      burnEndTime: 0, burnDPS: 0, burnTimer: 0, blockedUntil: 0,
       // Бой с монстрами: герой останавливается у цели и наносит удары.
       attackCooldown: Phaser.Math.Between(150, 600), engaged: false,
       container, graphic, hpBg, hpFill, hpBarWidth: hpW,
@@ -560,7 +577,7 @@ export class GameScene extends Phaser.Scene {
     const hpBg = this.add.rectangle(0, -22, 36, 4, 0x000000);
     const hpFill = this.add.rectangle(-18, -22, 36, 4, 0xffaa44).setOrigin(0, 0.5);
     const container = this.add.container(x, y, [graphic, hpBg, hpFill]).setDepth(30);
-    const hero = { col, hp, maxHp: hp, lastRenderedHp: hp, speed, speedMultiplier: 1, slowUntil: 0, dead: false, typeDef: td, isBoss: false, shieldHits: 0, disableTraps: false, weaknessTool: null, summonTimer: 0, healTimer: 0, poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0, attackCooldown: Phaser.Math.Between(150, 600), engaged: false, container, graphic, hpBg, hpFill, hpBarWidth: 36, row: -1 };
+    const hero = { col, hp, maxHp: hp, lastRenderedHp: hp, speed, speedMultiplier: 1, slowUntil: 0, dead: false, typeDef: td, isBoss: false, shieldHits: 0, disableTraps: false, weaknessTool: null, summonTimer: 0, healTimer: 0, poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0, burnEndTime: 0, burnDPS: 0, burnTimer: 0, blockedUntil: 0, attackCooldown: Phaser.Math.Between(150, 600), engaged: false, container, graphic, hpBg, hpFill, hpBarWidth: 36, row: -1 };
     this.heroes.push(hero);
     spawnPlaceEffect(this, x, y, 0xffaa44);
   }
@@ -584,7 +601,8 @@ export class GameScene extends Phaser.Scene {
     this.processBossAbilities(dt);
     this.processHeroAbilities(time, dt);
     this.processHealers(dt);
-    this.processPoison(time, dt);
+    this.processDots(time, dt);
+    this.processNecromancerRevive(time, dt);
     this._processAutoHeal(dt);
     this.checkWaveEnd();
   }
@@ -658,6 +676,9 @@ export class GameScene extends Phaser.Scene {
   killMonster(piece) {
     const def = TOOL_DEFS[piece.type];
     const pos = this.piecePos(piece);
+    // Запоминаем павшего: некромант может поднять его до конца волны.
+    if (!this._graveyard) this._graveyard = [];
+    this._graveyard.push({ type: piece.type, level: piece.level, row: piece.row, col: piece.col });
     spawnDeathParticles(this, pos.x, pos.y, def.mergeColors?.[piece.level - 1] || def.color, 14);
     floatText(this, pos.x, pos.y - 32, t("game_unit_slain", toolLabel(def)), "#ff8f8f", 14);
     audio.heroDeath();
@@ -671,7 +692,8 @@ export class GameScene extends Phaser.Scene {
     for (let i = this.heroes.length - 1; i >= 0; i--) {
       const hero = this.heroes[i];
       if (hero.dead) continue;
-      if (!hero.engaged) { // сражающийся герой стоит на месте
+      // Ледяная стена реально держит героя на месте (не просто замедляет).
+      if (!hero.engaged && hero.blockedUntil <= time) {
         const sm = hero.slowUntil > time ? hero.speedMultiplier : 1;
         hero.container.y += hero.speed * sm * dt;
       }
@@ -788,6 +810,21 @@ export class GameScene extends Phaser.Scene {
         target.speedMultiplier = def.slowFactor;
         target.slowUntil = time + (def.slowDuration || 2000) * (saveManager.data.slowBonus ?? 1);
       }
+      // Ледяная стена: помимо замедления полностью останавливает героя на короткое время.
+      if (applied && !target.dead) {
+        const blockMs = getBlockDuration(def, piece.level);
+        if (blockMs) {
+          target.blockedUntil = Math.max(target.blockedUntil || 0, time + blockMs);
+          floatText(this, target.container.x, target.container.y - 40, t("game_frozen"), "#9fe8ff", 12);
+        }
+        // Огненная плитка поджигает: урон по времени после срабатывания.
+        const burn = getBurnEffect(def, piece.level, saveManager.data);
+        if (burn) {
+          target.burnDPS = Math.max(target.burnDPS || 0, burn.dps);
+          target.burnEndTime = Math.max(target.burnEndTime || 0, time + burn.duration);
+          target.burnTimer = 0;
+        }
+      }
       piece.cooldown = getTrapCooldown(def, saveManager.data);
       this.pulsePiece(piece);
       audio.trapHit();
@@ -903,6 +940,61 @@ export class GameScene extends Phaser.Scene {
         const oPos = this.piecePos(other);
         if (distSq(oPos.x, oPos.y, nPos.x, nPos.y) <= buffR2) other._buffMult = (other._buffMult || 1) + buffAmt;
       }
+    }
+  }
+
+  /**
+   * Некромант поднимает павших монстров (дизайн-док): раз в reviveInterval один из
+   * убитых в этой волне монстров возвращается на своё место с частью HP.
+   * Кладбище живёт только внутри волны и очищается при откате прерванной волны.
+   */
+  processNecromancerRevive(time, delta) {
+    if (!this._graveyard.length) return;
+    const necroDef = TOOL_DEFS.necromancer;
+    for (const necro of this.piecesOfKind("monster")) {
+      if (necro.type !== "necromancer" || !this._graveyard.length) continue;
+      necro.reviveTimer = (necro.reviveTimer || 0) + delta;
+      if (necro.reviveTimer < (necroDef.reviveInterval || 7000)) continue;
+      necro.reviveTimer = 0;
+      const idx = this._graveyard.findIndex((g) => {
+        const def = TOOL_DEFS[g.type];
+        return def && this.isFootprintFree(def, g.row, g.col);
+      });
+      if (idx === -1) continue;
+      const fallen = this._graveyard.splice(idx, 1)[0];
+      this.spawnBoardPiece({ row: fallen.row, col: fallen.col, type: fallen.type, level: fallen.level });
+      const revived = this.cellEntry(fallen.row, fallen.col)?.monster;
+      if (!revived) continue;
+      revived.hp = getReviveHP(TOOL_DEFS[fallen.type], fallen.level);
+      if (revived.hpBg) {
+        revived.hpBg.setVisible(true); revived.hpFill.setVisible(true);
+        revived.hpFill.width = revived.hpBarW * (revived.hp / revived.maxHp);
+        revived.hpFill.setFillStyle(0xffd166);
+      }
+      const pos = this.piecePos(revived);
+      spawnNecromancerAura(this, pos.x, pos.y);
+      floatText(this, pos.x, pos.y - 30, t("game_revived"), "#cc88ff", 14);
+      audio.place();
+    }
+  }
+
+  /** Периодический урон: яд ловушки и горение от огненной плитки. */
+  processDots(time, delta) {
+    this.processPoison(time, delta);
+    this.processBurn(time, delta);
+  }
+
+  processBurn(time, delta) {
+    for (const hero of this.heroes) {
+      if (hero.dead || hero.burnEndTime <= time || !hero.burnDPS) continue;
+      hero.burnTimer += delta;
+      if (hero.burnTimer < 1000) continue;
+      hero.burnTimer -= 1000;
+      hero.hp -= hero.burnDPS;
+      floatText(this, hero.container.x, hero.container.y - 25, `-${hero.burnDPS}🔥`, "#ff9f43", 12);
+      hero.graphic.setTint(0xff6b35);
+      this.time.delayedCall(200, () => { if (!hero.dead) hero.graphic.clearTint(); });
+      if (hero.hp <= 0) this.killHero(hero);
     }
   }
 
@@ -1122,6 +1214,7 @@ export class GameScene extends Phaser.Scene {
 
   onWaveComplete() {
     this.waveInProgress = false;
+    SDK.gameplayStop();
     this.startWaveButton.setLabel(t("game_start_wave"));
     const regen = saveManager.data.regenPerWave ?? 2;
     this.crystalHP = Math.min(saveManager.data.maxCrystalHP, this.crystalHP + regen);
@@ -1184,6 +1277,8 @@ export class GameScene extends Phaser.Scene {
     saveManager.recalcBonuses();
     this.crystalHP = saveManager.data.crystalHP;
     this.waveInProgress = false; this.pendingReward = null;
+    SDK.gameplayStop();
+    this._graveyard.length = 0;
     this.clearHeroes();
     if (rebuildBoard) {
       // Доска сцены должна соответствовать откатанному сейву
@@ -1200,6 +1295,7 @@ export class GameScene extends Phaser.Scene {
   onGameOver() {
     if (this.gameOverState) return;
     this.waveInProgress = false; this.gameOverState = true;
+    SDK.gameplayStop();
     this.startWaveButton.setLabel(t("game_start_wave"));
     this.helpText.setText(t("game_crystal_destroyed"));
     audio.gameOver();
@@ -1370,8 +1466,12 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  pauseForAd() { this.adPaused = true; }
-  resumeAfterAd() { this.adPaused = false; }
+  pauseForAd() { this._adInProgress = true; this.adPaused = true; SDK.gameplayStop(); }
+  resumeAfterAd() {
+    this._adInProgress = false;
+    this.adPaused = false;
+    if (this.waveInProgress && !document.hidden) SDK.gameplayStart();
+  }
 
   async persistProgress() {
     if (this.isEndless) {

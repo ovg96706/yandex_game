@@ -15,8 +15,8 @@ import { t } from "./i18n.js";
 
 export const TOOL_DEFS = {
   spikes: { id: "spikes", labelKey: "unit_spikes", descKey: "unit_spikes_desc", kind: "trap", label: "Шипы", icon: "▲", cost: 30, damage: 25, cooldown: 700, color: 0xb0b0b0, mergeColors: [0xb0b0b0, 0xc8c8c8, 0xe0d060, 0xff9933, 0xff3333], description: "Урон при наступании." },
-  fire_tile: { id: "fire_tile", labelKey: "unit_fire_tile", descKey: "unit_fire_tile_desc", kind: "trap", label: "Огонь", icon: "🔥", cost: 55, damage: 35, cooldown: 850, color: 0xff6b35, mergeColors: [0xff6b35, 0xff8844, 0xffaa22, 0xff5500, 0xff0000], description: "Высокий урон, поджигает.", unlockWave: 5 },
-  ice_wall: { id: "ice_wall", labelKey: "unit_ice_wall", descKey: "unit_ice_wall_desc", kind: "trap", label: "Лёд", icon: "❄", cost: 50, damage: 12, cooldown: 1200, slowFactor: 0.4, slowDuration: 2000, color: 0x74b9ff, mergeColors: [0x74b9ff, 0x55ccff, 0x33ddff, 0x00eeff, 0x00ffff], description: "Замедляет на 60%.", unlockWave: 10 },
+  fire_tile: { id: "fire_tile", labelKey: "unit_fire_tile", descKey: "unit_fire_tile_desc", kind: "trap", label: "Огонь", icon: "🔥", cost: 55, damage: 35, cooldown: 850, color: 0xff6b35, mergeColors: [0xff6b35, 0xff8844, 0xffaa22, 0xff5500, 0xff0000], description: "Высокий урон, поджигает.", unlockWave: 5, burnDPS: 7, burnDuration: 4000 },
+  ice_wall: { id: "ice_wall", labelKey: "unit_ice_wall", descKey: "unit_ice_wall_desc", kind: "trap", label: "Лёд", icon: "❄", cost: 50, damage: 12, cooldown: 1200, slowFactor: 0.4, slowDuration: 3000, blockDuration: 900, color: 0x74b9ff, mergeColors: [0x74b9ff, 0x55ccff, 0x33ddff, 0x00eeff, 0x00ffff], description: "Замедляет на 60%.", unlockWave: 10 },
   poison: { id: "poison", labelKey: "unit_poison", descKey: "unit_poison_desc", kind: "trap", label: "Яд", icon: "☠", cost: 65, damage: 8, cooldown: 1500, color: 0x6c5ce7, mergeColors: [0x6c5ce7, 0x7d6cf0, 0x9b59b6, 0xbe2edd, 0xff00ff], description: "Ядовит. Урон 5 сек.", unlockWave: 18, poisonDPS: 8, poisonDuration: 5000 },
   lightning: { id: "lightning", labelKey: "unit_lightning", descKey: "unit_lightning_desc", kind: "trap", label: "Молния", icon: "⚡", cost: 85, damage: 50, cooldown: 2000, color: 0xf9ca24, mergeColors: [0xf9ca24, 0xfbda52, 0xfdeb71, 0xffff00, 0xffffff], description: "Цепная молния (3 цели).", unlockWave: 25, chainCount: 3, chainRange: 2.5 },
   teleport: { id: "teleport", labelKey: "unit_teleport", descKey: "unit_teleport_desc", kind: "trap", label: "Телепорт", icon: "🌀", cost: 100, damage: 0, cooldown: 4000, color: 0xa855f7, mergeColors: [0xa855f7, 0xb86ef8, 0xc884f9, 0xd89afa, 0xe8b0fb], description: "Отбрасывает наверх.", unlockWave: 35, teleportRows: 5 },
@@ -27,7 +27,7 @@ export const TOOL_DEFS = {
   goblin: { id: "goblin", labelKey: "unit_goblin", descKey: "unit_goblin_desc", kind: "monster", label: "Гоблин", icon: "G", cost: 90, damage: 22, cooldown: 600, range: 3.5, monsterHP: 80, color: 0x88cc44, mergeColors: [0x88cc44, 0x99dd44, 0xaaee44, 0xccff00, 0xffff00], description: "Дальний, быстрый.", unlockWave: 15 },
   elemental: { id: "elemental", labelKey: "unit_elemental", descKey: "unit_elemental_desc", kind: "monster", label: "Элементаль", icon: "🔥", cost: 110, damage: 28, cooldown: 1300, range: 2.0, monsterHP: 140, color: 0xff6348, mergeColors: [0xff6348, 0xff7b5e, 0xff9374, 0xffab8a, 0xffc3a0], description: "AoE урон в 2 клетках.", unlockWave: 20, aoeRange: 2 },
   dark_knight: { id: "dark_knight", labelKey: "unit_dark_knight", descKey: "unit_dark_knight_desc", kind: "monster", label: "Тёмн. рыцарь", icon: "⚔", cost: 140, damage: 45, cooldown: 1500, range: 1.5, monsterHP: 240, color: 0x2c3e50, mergeColors: [0x2c3e50, 0x34495e, 0x3d566e, 0x4a6480, 0x5d7a96], description: "Танк + контратака.", unlockWave: 30, counterDamage: 20 },
-  necromancer: { id: "necromancer", labelKey: "unit_necromancer", descKey: "unit_necromancer_desc", kind: "monster", label: "Некромант", icon: "👻", cost: 180, damage: 15, cooldown: 2000, range: 3.0, monsterHP: 110, color: 0x6c3483, mergeColors: [0x6c3483, 0x7d3c98, 0x8e44ad, 0xa04cbf, 0xb355d1], description: "Усиливает соседей.", unlockWave: 40, buffRadius: 2, buffAmount: 0.3 },
+  necromancer: { id: "necromancer", labelKey: "unit_necromancer", descKey: "unit_necromancer_desc", kind: "monster", label: "Некромант", icon: "👻", cost: 180, damage: 15, cooldown: 2000, range: 3.0, monsterHP: 110, color: 0x6c3483, mergeColors: [0x6c3483, 0x7d3c98, 0x8e44ad, 0xa04cbf, 0xb355d1], description: "Усиливает соседей.", unlockWave: 40, buffRadius: 2, buffAmount: 0.3, reviveInterval: 7000, reviveHpFactor: 0.5 },
   dragon: { id: "dragon", labelKey: "unit_dragon", descKey: "unit_dragon_desc", kind: "monster", label: "Дракон", icon: "🐉", cost: 250, damage: 60, cooldown: 2200, range: 4.0, monsterHP: 320, size: 2, color: 0x8b0000, mergeColors: [0x8b0000, 0xa01010, 0xb52020, 0xcc3030, 0xff4444], description: "Огненное дыхание. 2×2.", unlockWave: 55, breathWidth: 1.2 },
 };
 
@@ -40,6 +40,7 @@ export const HERO_TYPES = {
   peasant: { id: "peasant", labelKey: "hero_peasant", label: "Крестьянин", hpMult: 1, speedMult: 1.1, goldReward: 4, soulReward: 2, isBoss: false, minWave: 1, weight: 10, scale: 1, attackMult: 1, attackInterval: 1100, attackRange: 1.35 },
   warrior: { id: "warrior", labelKey: "hero_warrior", label: "Воин", hpMult: 1.5, speedMult: 0.95, goldReward: 6, soulReward: 3, isBoss: false, minWave: 3, weight: 8, scale: 1, attackMult: 1.3, attackInterval: 1100, attackRange: 1.35 },
   mage: { id: "mage", labelKey: "hero_mage", label: "Маг", hpMult: 0.8, speedMult: 0.85, goldReward: 8, soulReward: 5, trapDestroyInterval: 5000, isBoss: false, minWave: 6, weight: 6, scale: 1, attackMult: 1.1, attackInterval: 1300, attackRange: 1.9 },
+  archer: { id: "archer", labelKey: "hero_archer", label: "Лучник", hpMult: 0.75, speedMult: 1.0, goldReward: 7, soulReward: 4, isBoss: false, minWave: 5, weight: 7, scale: 0.95, attackMult: 0.9, attackInterval: 900, attackRange: 3.2 },
   thief: { id: "thief", labelKey: "hero_thief", label: "Вор", hpMult: 0.7, speedMult: 1.6, goldReward: 7, soulReward: 4, isBoss: false, minWave: 8, weight: 5, scale: 0.9, attackMult: 0.8, attackInterval: 700, attackRange: 1.35 },
   knight: { id: "knight", labelKey: "hero_knight", label: "Рыцарь", hpMult: 2.2, speedMult: 0.7, goldReward: 10, soulReward: 6, isBoss: false, minWave: 10, weight: 5, scale: 1.1, attackMult: 1.6, attackInterval: 1400, attackRange: 1.35 },
   healer: { id: "healer", labelKey: "hero_healer", label: "Целитель", hpMult: 1.0, speedMult: 0.9, goldReward: 9, soulReward: 5, healAmount: 0.1, healInterval: 3000, isBoss: false, minWave: 12, weight: 4, scale: 1, attackMult: 0 },
@@ -664,6 +665,31 @@ export function getHeroAttackDamage(heroDef, wave) {
   const mult = heroDef.attackMult ?? 1;
   if (mult <= 0) return 0;
   return Math.max(1, Math.floor((8 + wave * 1.5) * mult));
+}
+
+/**
+ * Горение от огненной плитки (DoT по дизайн-документу): урон в секунду и длительность.
+ * Возвращает null, если у ловушки нет поджога.
+ */
+export function getBurnEffect(toolDef, level, save) {
+  if (!toolDef?.burnDPS) return null;
+  const dps = Math.max(1, Math.floor(toolDef.burnDPS * level * (save?.trapDamageBonus ?? 1)));
+  return { dps, duration: toolDef.burnDuration || 4000 };
+}
+
+/**
+ * Ледяная стена реально задерживает героя: время полной остановки (мс).
+ * Длительность растёт с уровнем мёрджа, но ограничена, чтобы не «замораживать» волну.
+ */
+export function getBlockDuration(toolDef, level = 1) {
+  if (!toolDef?.blockDuration) return 0;
+  return Math.min(2500, Math.floor(toolDef.blockDuration * (1 + (level - 1) * 0.25)));
+}
+
+/** HP воскрешённого некромантом монстра (доля от максимума). */
+export function getReviveHP(toolDef, level, necroDef = TOOL_DEFS.necromancer) {
+  const factor = necroDef?.reviveHpFactor ?? 0.5;
+  return Math.max(1, Math.floor(getMonsterMaxHP(toolDef, level) * factor));
 }
 
 /** Размер фигуры в клетках (дракон — 2×2, остальные — 1×1). */
