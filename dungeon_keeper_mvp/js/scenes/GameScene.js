@@ -4,6 +4,7 @@ import {
   getToolCost, isToolUnlocked, pickHeroType, getBossForWave, getHeroReward,
   toolLabel, toolDesc, heroLabel,
   computeDamage, getTrapCooldown, getMonsterCooldown, getToolRange,
+  ENDLESS, getEndlessBossType,
 } from "../config.js";
 import { saveManager } from "../saveManager.js";
 import { adManager } from "../adManager.js";
@@ -22,6 +23,21 @@ import { t } from "../i18n.js";
 
 export class GameScene extends Phaser.Scene {
   constructor() { super("GameScene"); }
+
+  /** mode: "story" (кампания) | "endless" (Бездна — отдельный забег). */
+  init(data) { this.gameMode = data?.mode === "endless" ? "endless" : "story"; }
+
+  get isEndless() { return this.gameMode === "endless"; }
+
+  /** Единые точки доступа к волне и валюте: кампания — сейв, Бездна — локальный забег. */
+  waveNo() { return this.isEndless ? this._endlessWave : saveManager.data.wave; }
+  goldAmt() { return this.isEndless ? this._runGold : saveManager.data.gold; }
+  trySpendGold(amount) {
+    if (this.goldAmt() < amount) return false;
+    if (this.isEndless) this._runGold -= amount; else saveManager.data.gold -= amount;
+    return true;
+  }
+  addGold(amount) { if (this.isEndless) this._runGold += amount; else saveManager.data.gold += amount; }
 
   create() {
     audio.ensure();
@@ -49,8 +65,14 @@ export class GameScene extends Phaser.Scene {
     this.waveKills = 0;
     this.crystalHP = saveManager.data.crystalHP || saveManager.data.maxCrystalHP;
 
+    // Забег «Бездна»: локальные волна/золото, доска не загружается из сейва.
+    this._endlessWave = 1;
+    this._runGold = ENDLESS.startGold;
+    this._endlessSoulsEarned = 0;
+    if (this.isEndless) this.crystalHP = saveManager.data.maxCrystalHP;
+
     // Флаг второго шанса и autoHeal-таймер
-    this._usedSecondChanceThisRun = false;
+    this._usedSecondChanceThisRun = this.isEndless ? true : false;
     this._autoHealTimer = 0;
     this._runSnapshot = null;
     this._skipShutdownPersist = false;
@@ -67,7 +89,7 @@ export class GameScene extends Phaser.Scene {
     this.drawGrid();
     this.createCrystal();
     this.createBottomUI();
-    this.restoreBoard();
+    if (!this.isEndless) this.restoreBoard();
     this.refreshUI(true);
 
     this.input.on("pointerdown", this.onPointerDown, this);
@@ -76,7 +98,13 @@ export class GameScene extends Phaser.Scene {
 
     // A partially played wave is never persisted: otherwise rewards from killed enemies
     // could be kept by leaving the scene and replaying the same wave.
-    this._visHandler = () => { if (document.hidden && (this.waveInProgress || this.pendingReward)) this.abortWaveAndRollback(); else if (document.hidden) this.persistProgress(); };
+    // В Бездне награды начисляются только в конце забега, поэтому откатывать нечего.
+    this._visHandler = () => {
+      if (!document.hidden) return;
+      if (this.isEndless) { saveManager.saveThrottled(); return; }
+      if (this.waveInProgress || this.pendingReward) this.abortWaveAndRollback();
+      else this.persistProgress();
+    };
     document.addEventListener("visibilitychange", this._visHandler);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -88,6 +116,7 @@ export class GameScene extends Phaser.Scene {
       this.circlePool?.destroyAll();
       const idx = achievements.onUnlockCallbacks.indexOf(this._achUnlockHandler);
       if (idx !== -1) achievements.onUnlockCallbacks.splice(idx, 1);
+      if (this.isEndless) return; // в Бездне нет ни незавершённых наград кампании, ни доски для сохранения
       if (this.waveInProgress || this.pendingReward) this.abortWaveAndRollback();
       else if (!this._skipShutdownPersist) this.persistProgress();
     });
@@ -149,13 +178,18 @@ export class GameScene extends Phaser.Scene {
 
   createTopUI() {
     createButton(this, 50, 26, 75, 34, t("game_menu"), async () => {
-      if (this.waveInProgress) { floatText(this, 270, 110, "Заверши волну перед выходом", "#ff8f8f", 15); return; }
-      await this.persistProgress(); this.scene.start("MenuScene");
+      if (this.waveInProgress) { floatText(this, 270, 110, t("game_finish_wave_first"), "#ff8f8f", 15); return; }
+      if (!this.isEndless) await this.persistProgress();
+      saveManager.saveThrottled();
+      this.scene.start("MenuScene");
     }, { textSize: "14px" });
-    createButton(this, 140, 26, 85, 34, t("game_shop"), async () => {
-      if (this.waveInProgress) { floatText(this, 270, 110, "Заверши волну перед выходом", "#ff8f8f", 15); return; }
-      await this.persistProgress(); this.scene.start("ShopScene");
-    }, { textSize: "13px", color: 0x3b2d5e, hoverColor: 0x5a40a0, stroke: 0xb388ff });
+    if (!this.isEndless) {
+      createButton(this, 140, 26, 85, 34, t("game_shop"), async () => {
+        if (this.waveInProgress) { floatText(this, 270, 110, t("game_finish_wave_first"), "#ff8f8f", 15); return; }
+        await this.persistProgress();
+        this.scene.start("ShopScene");
+      }, { textSize: "13px", color: 0x3b2d5e, hoverColor: 0x5a40a0, stroke: 0xb388ff });
+    }
     this.waveText = this.add.text(240, 12, "", { fontFamily: "Arial", fontSize: "18px", color: "#ffffff", fontStyle: "bold" });
     this.goldText = this.add.text(240, 34, "", { fontFamily: "Arial", fontSize: "16px", color: "#ffd700" });
     this.soulsText = this.add.text(370, 34, "", { fontFamily: "Arial", fontSize: "16px", color: "#57ffb8" });
@@ -176,7 +210,7 @@ export class GameScene extends Phaser.Scene {
     this.startWaveButton = createButton(this, 270, 875, 300, 40, t("game_start_wave"), () => this.startWave(),
       { color: 0x285c3b, hoverColor: 0x31804f, stroke: 0x7effa7, textSize: "18px" });
     this.selectTool("spikes");
-    this.helpText.setText(t("game_place_defense"));
+    this.helpText.setText(this.isEndless ? t("endless_hint") : t("game_place_defense"));
   }
 
   rebuildToolbar() {
@@ -230,6 +264,7 @@ export class GameScene extends Phaser.Scene {
 
   spawnBoardPiece(data, withEffect = true) {
     const def = TOOL_DEFS[data.type]; if (!def) return;
+    saveManager.markDiscovered("units", data.type);
     const pos = this.cellCenter(data.row, data.col);
     const lvl = Math.min(data.level || 1, MAX_MERGE_LEVEL);
     const graphic = drawPiece(this, data.type, def.kind, lvl);
@@ -303,9 +338,7 @@ export class GameScene extends Phaser.Scene {
       const np = this.gridItems.get(tKey); if (np) this.pulsePiece(np);
 
       saveManager.incStat("totalMerges", 1);
-      if (nl >= MAX_MERGE_LEVEL) saveManager.setStatMax("maxLevelMerge", 1);
-      achievements.checkAll();
-    } else {
+      if (nl >= MAX_MERGE_LEVEL) saveManager.setSta } else {
       const msg = source.type !== target.type ? t("game_diff_types")
         : source.level !== target.level ? t("game_diff_levels") : t("game_max_level");
       floatText(this, pointer.x, pointer.y - 20, msg, "#ff8f8f", 15); audio.mergeFail();
@@ -324,7 +357,7 @@ export class GameScene extends Phaser.Scene {
     const def = TOOL_DEFS[piece.type];
     const refundPercent = saveManager.data.eraseRefundBonus ?? 0.5;
     const refund = Math.floor(getToolCost(def, saveManager.data) * refundPercent * piece.level);
-    saveManager.data.gold += refund;
+    this.addGold(refund);
     this.removePiece(key);
     floatText(this, pointer.x, pointer.y - 10, `+${refund}🪙`, "#ffd700", 16);
     audio.erase();
@@ -334,14 +367,13 @@ export class GameScene extends Phaser.Scene {
 
   placeNewPiece(row, col, pointer) {
     const def = TOOL_DEFS[this.selectedTool]; if (!def) return;
-    if (!isToolUnlocked(def, saveManager.data.wave)) {
+    if (!isToolUnlocked(def, this.waveNo())) {
       floatText(this, pointer.x, pointer.y - 10, t("game_not_unlocked"), "#ff8f8f", 15); audio.error(); return;
     }
     const cost = getToolCost(def, saveManager.data);
-    if (saveManager.data.gold < cost) {
+    if (!this.trySpendGold(cost)) {
       floatText(this, pointer.x, pointer.y - 10, t("game_not_enough_gold"), "#ff8f8f", 16); audio.error(); return;
     }
-    saveManager.data.gold -= cost;
     this.spawnBoardPiece({ row, col, kind: def.kind, type: def.id, level: 1 });
     floatText(this, pointer.x, pointer.y - 10, `-${cost}`, "#ffd700", 16);
     audio.place();
@@ -352,32 +384,37 @@ export class GameScene extends Phaser.Scene {
   startWave() {
     if (this.waveInProgress || this.pendingReward || this.gameOverState) return;
     // Сброс флагов на старте волны
-    this._usedSecondChanceThisRun = false;
+    this._usedSecondChanceThisRun = this.isEndless;
     this._autoHealTimer = 0;
 
-    this._runSnapshot = JSON.parse(JSON.stringify(saveManager.data));
-    this._runSnapshot.crystalHP = this.crystalHP;
+    if (!this.isEndless) this._runSnapshot = JSON.parse(JSON.stringify(saveManager.data));
+    if (!this.isEndless) this._runSnapshot.crystalHP = this.crystalHP;
     this.waveInProgress = true;
     this.spawnedCount = 0;
-    this.totalToSpawn = getWaveEnemyCount(saveManager.data.wave);
+    this.totalToSpawn = getWaveEnemyCount(this.waveNo());
     this.spawnInterval = 900;
     this.spawnTimer = 0;
     this.bossSpawned = false;
-    this.bossType = getBossForWave(saveManager.data.wave);
+    this.bossType = this.isEndless
+      ? (this.waveNo() % ENDLESS.bossEveryWaves === 0 ? getEndlessBossType(this.waveNo()) : null)
+      : getBossForWave(saveManager.data.wave);
     this.waveGoldEarned = 0; this.waveSoulsEarned = 0; this.waveKills = 0;
     const bl = this.bossType ? t("game_boss_marker", heroLabel(this.bossType)) : "";
-    this.helpText.setText(t("game_wave_ongoing", saveManager.data.wave) + bl);
+    this.helpText.setText(t("game_wave_ongoing", this.waveNo()) + bl);
     this.startWaveButton.setLabel(t("game_wave_running"));
     audio.waveStart();
-    if (this.bossType) this.time.delayedCall(500, () => spawnBossWarning(this));
+    if (this.bossType) this.time.delayedCall(500, () => spawnBossWarning(this, this.bossType));
   }
 
   spawnHero(forceBoss = false) {
-    const wave = saveManager.data.wave;
+    const wave = this.waveNo();
     const bHP = getBaseHeroHP(wave), bSpd = getBaseHeroSpeed(wave);
     const td = forceBoss && this.bossType ? (this.bossSpawned = true, this.bossType) : pickHeroType(wave);
-    const hp = Math.floor(bHP * td.hpMult);
-    const speed = Math.floor(bSpd * td.speedMult);
+    const hpScale = this.isEndless ? 1 + (wave - 1) * ENDLESS.hpGrowth : 1;
+    const spScale = this.isEndless ? 1 + Math.min(ENDLESS.speedCap, (wave - 1) * ENDLESS.speedGrowth) : 1;
+    const hp = Math.floor(bHP * td.hpMult * hpScale);
+    const speed = Math.floor(bSpd * td.speedMult * spScale);
+    saveManager.markDiscovered("heroes", td.id);
     const col = Phaser.Math.Between(0, GAME_CONFIG.grid.cols - 1);
     const g = GAME_CONFIG.grid;
     const x = g.offsetX + col * g.cell + g.cell / 2, y = g.offsetY - 20;
@@ -394,7 +431,7 @@ export class GameScene extends Phaser.Scene {
       col, hp, maxHp: hp, lastRenderedHp: hp,
       speed, speedMultiplier: 1, slowUntil: 0, dead: false,
       typeDef: td, isBoss: td.isBoss, shieldHits: td.shieldHits || 0,
-      disableTraps: td.disableTraps || false,
+      disableTraps: td.disableTraps || false, weaknessTool: td.weaknessTool || null,
       summonTimer: 0, healTimer: 0,
       poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0,
       container, graphic, hpBg, hpFill, hpBarWidth: hpW,
@@ -406,9 +443,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   spawnSummonedHero(boss) {
-    const wave = saveManager.data.wave, td = HERO_TYPES.peasant;
-    const hp = Math.floor(getBaseHeroHP(wave) * td.hpMult * 0.6);
+    const wave = this.waveNo(), td = HERO_TYPES.peasant;
+    const hpScale = this.isEndless ? 1 + (wave - 1) * ENDLESS.hpGrowth : 1;
+    const hp = Math.floor(getBaseHeroHP(wave) * td.hpMult * 0.6 * hpScale);
     const speed = Math.floor(getBaseHeroSpeed(wave) * td.speedMult * 1.2);
+    saveManager.markDiscovered("heroes", td.id);
     const g = GAME_CONFIG.grid;
     const col = Phaser.Math.Clamp(boss.col + Phaser.Math.Between(-1, 1), 0, g.cols - 1);
     const x = g.offsetX + col * g.cell + g.cell / 2, y = boss.container.y - 10;
@@ -416,7 +455,7 @@ export class GameScene extends Phaser.Scene {
     const hpBg = this.add.rectangle(0, -22, 36, 4, 0x000000);
     const hpFill = this.add.rectangle(-18, -22, 36, 4, 0xffaa44).setOrigin(0, 0.5);
     const container = this.add.container(x, y, [graphic, hpBg, hpFill]);
-    const hero = { col, hp, maxHp: hp, lastRenderedHp: hp, speed, speedMultiplier: 1, slowUntil: 0, dead: false, typeDef: td, isBoss: false, shieldHits: 0, disableTraps: false, summonTimer: 0, healTimer: 0, poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0, container, graphic, hpBg, hpFill, hpBarWidth: 36, row: -1 };
+    const hero = { col, hp, maxHp: hp, lastRenderedHp: hp, speed, speedMultiplier: 1, slowUntil: 0, dead: false, typeDef: td, isBoss: false, shieldHits: 0, disableTraps: false, weaknessTool: null, summonTimer: 0, healTimer: 0, poisonEndTime: 0, poisonDPS: 0, poisonTimer: 0, container, graphic, hpBg, hpFill, hpBarWidth: 36, row: -1 };
     this.heroes.push(hero);
     this.heroesByCol[col].push(hero);
     spawnPlaceEffect(this, x, y, 0xffaa44);
@@ -424,22 +463,24 @@ export class GameScene extends Phaser.Scene {
 
   update(time, delta) {
     if (this.adPaused || !this.waveInProgress) return;
-    this.spawnTimer += delta;
+    // Защита от скачка после сворачивания вкладки: не догоняем «пропущенное» время (аудит №20).
+    const dt = Math.min(delta, 100);
+    this.spawnTimer += dt;
     while (this.spawnedCount < this.totalToSpawn && this.spawnTimer >= this.spawnInterval) {
       this.spawnTimer -= this.spawnInterval;
       if (this.bossType && !this.bossSpawned && this.spawnedCount >= Math.floor(this.totalToSpawn / 2)) this.spawnHero(true);
       else this.spawnHero(false);
       this.spawnedCount++;
     }
-    this.updateHeroes(time, delta);
-    this.processTraps(time, delta);
-    this.processNecromancerBuffs(delta);
-    this.processMonsters(time, delta);
-    this.processBossAbilities(delta);
-    this.processHeroAbilities(time, delta);
-    this.processHealers(delta);
-    this.processPoison(time, delta);
-    this._processAutoHeal(delta);
+    this.updateHeroes(time, dt);
+    this.processTraps(time, dt);
+    this.processNecromancerBuffs(dt);
+    this.processMonsters(time, dt);
+    this.processBossAbilities(dt);
+    this.processHeroAbilities(time, dt);
+    this.processHealers(dt);
+    this.processPoison(time, dt);
+    this._processAutoHeal(dt);
     this.checkWaveEnd();
   }
 
@@ -495,18 +536,20 @@ export class GameScene extends Phaser.Scene {
         const closeR2 = (cellSize * 0.7) ** 2;
         let anyPulled = false;
         for (const h of this.heroes) {
-          if (h.dead) continue;
+          if (h.dead || h.disableTraps) continue;
           const d2 = distSq(h.container.x, h.container.y, pPos.x, pPos.y);
-          if (d2 <= pullR2 && d2 > 100) {
+          if (d2 > pullR2) continue;
+          if (d2 > 4) {
             const angle = Math.atan2(pPos.y - h.container.y, pPos.x - h.container.x);
             h.container.x += Math.cos(angle) * 12;
             h.container.y += Math.sin(angle) * 8;
             anyPulled = true;
-            if (d2 < closeR2) {
-              const isBoss = h.isBoss || false;
-              const { damage: aoeDmg, isCrit } = computeDamage({ damage: def.aoeDamage || 15, kind: "trap" }, piece.level, saveManager.data, isBoss);
-              this.damageHero(h, aoeDmg, isCrit);
-            }
+          }
+          if (d2 < closeR2) {
+            const isBoss = h.isBoss || false;
+            const { damage: aoeDmg, isCrit } = computeDamage({ damage: def.aoeDamage || 15, kind: "trap" }, piece.level, saveManager.data, isBoss, h.weaknessTool);
+            this.damageHero(h, aoeDmg, isCrit);
+            anyPulled = true;
           }
         }
         if (anyPulled) { spawnBlackholeEffect(this, pPos.x, pPos.y); audio.trapHit(); }
@@ -529,7 +572,7 @@ export class GameScene extends Phaser.Scene {
         const target = this._findHeroForTrap(piece, true);
         if (!target) continue;
         const isBoss = target.isBoss || false;
-        const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss);
+        const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
         this.damageHero(target, dmg, isCrit);
         const chainCount = (def.chainCount || 3) + Math.floor(piece.level / 2);
         const chainR2 = ((def.chainRange || 2.5) * cellSize) ** 2;
@@ -557,7 +600,7 @@ export class GameScene extends Phaser.Scene {
         const target = this._findHeroForTrap(piece, true);
         if (!target) continue;
         const isBoss = target.isBoss || false;
-        const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss);
+        const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
         this.damageHero(target, dmg, isCrit);
         target.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
         target.poisonEndTime = time + (def.poisonDuration || 5000);
@@ -570,7 +613,7 @@ export class GameScene extends Phaser.Scene {
       const target = this._findHeroForTrap(piece, true);
       if (!target) continue;
       const isBoss = target.isBoss || false;
-      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss);
+      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
       this.damageHero(target, dmg, isCrit);
       if (def.slowFactor) {
         target.speedMultiplier = def.slowFactor;
@@ -666,7 +709,7 @@ export class GameScene extends Phaser.Scene {
 
       // Одиночный удар — учитываем, босс ли цель
       const isBossTarget = target.isBoss;
-      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBossTarget);
+      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBossTarget, target.weaknessTool);
       const buffedDmg = Math.floor(dmg * buffMult);
       this.damageHero(target, buffedDmg, isCrit);
 
@@ -744,7 +787,7 @@ export class GameScene extends Phaser.Scene {
             const pos = this.cellCenter(piece.row, piece.col), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
             if (d < best && d < (GAME_CONFIG.grid.cell * 2) ** 2) { closest = piece; best = d; }
           }
-          if (closest) { this.removePiece(this.cellKey(closest.row, closest.col)); floatText(this, hero.container.x, hero.container.y - 35, "РАССЕЯНИЕ!", "#aabfff", 12); }
+          if (closest) { this.removePiece(this.cellKey(closest.row, closest.col)); floatText(this, hero.container.x, hero.container.y - 35, t("game_dispel"), "#aabfff", 12); }
         }
       }
       if (hero.typeDef.monsterDebuffInterval) {
@@ -756,7 +799,7 @@ export class GameScene extends Phaser.Scene {
             const pos = this.cellCenter(piece.row, piece.col), d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
             if (d < best && d < (GAME_CONFIG.grid.cell * 3) ** 2) { closest = piece; best = d; }
           }
-          if (closest) { closest._archmageDebuffUntil = time + 3500; floatText(this, hero.container.x, hero.container.y - 35, "ПРОКЛЯТИЕ!", "#cc88ff", 12); }
+          if (closest) { closest._archmageDebuffUntil = time + 3500; floatText(this, hero.container.x, hero.container.y - 35, t("game_curse"), "#cc88ff", 12); }
         }
       }
     }
@@ -809,18 +852,35 @@ export class GameScene extends Phaser.Scene {
     if (hero.dead) return;
     hero.dead = true;
     const reward = getHeroReward(hero.typeDef, saveManager.data);
-    saveManager.data.gold += reward.gold;
-    saveManager.data.souls += reward.souls;
-    this.waveGoldEarned += reward.gold;
-    this.waveSoulsEarned += reward.souls;
+
+    if (this.isEndless) {
+      // В Бездне золото идёт в казну забега (с понижающим множителем), души — только финальной наградой.
+      const runGold = Math.max(1, Math.floor(reward.gold * ENDLESS.killGoldFactor));
+      this.addGold(runGold);
+      this._endlessSoulsEarned += reward.souls;
+      this.waveGoldEarned += runGold;
+    } else {
+      saveManager.data.gold += reward.gold;
+      saveManager.data.souls += reward.souls;
+      this.waveGoldEarned += reward.gold;
+      this.waveSoulsEarned += reward.souls;
+    }
     this.waveKills++;
 
     saveManager.incStat("totalKills", 1);
-    if (hero.isBoss) saveManager.incStat("bossKills", 1);
+    if (hero.isBoss) {
+      saveManager.incStat("bossKills", 1);
+      // 🔮 Эссенция: гарантированная награда за каждого босса (+ шанс от таланта).
+      let essence = 1;
+      if (Math.random() < (saveManager.data.essenceDropChance ?? 0)) essence += 1;
+      saveManager.grantReward({ essence });
+      floatText(this, hero.container.x + 26, hero.container.y - 24, `+${essence}🔮`, "#cc88ff", 15);
+      saveManager.saveThrottled();
+    }
 
     const fs = hero.isBoss ? 18 : 13;
-    floatText(this, hero.container.x - 14, hero.container.y - 10, `+${reward.gold}🪙`, hero.isBoss ? "#ffff00" : "#ffd700", fs);
-    floatText(this, hero.container.x + 14, hero.container.y - 10, `+${reward.souls}💀`, hero.isBoss ? "#00ffaa" : "#57ffb8", fs);
+    floatText(this, hero.container.x - 14, hero.container.y - 10, `+${this.isEndless ? Math.max(1, Math.floor(reward.gold * ENDLESS.killGoldFactor)) : reward.gold}🪙`, hero.isBoss ? "#ffff00" : "#ffd700", fs);
+    if (!this.isEndless) floatText(this, hero.container.x + 14, hero.container.y - 10, `+${reward.souls}💀`, hero.isBoss ? "#00ffaa" : "#57ffb8", fs);
     if (hero.isBoss) {
       spawnDeathParticles(this, hero.container.x, hero.container.y, 0xffd700, 16);
       floatText(this, hero.container.x, hero.container.y - 40, t("game_boss_defeated", heroLabel(hero.typeDef)), "#ffff00", 20);
@@ -845,8 +905,9 @@ export class GameScene extends Phaser.Scene {
 
     this.crystalHP = Math.max(0, this.crystalHP - dmg);
     if (hero.typeDef.id === "thief") {
-      const stolen = Math.min(saveManager.data.gold, Math.max(1, Math.floor(saveManager.data.gold * 0.1)));
-      saveManager.data.gold -= stolen;
+      const purse = this.goldAmt();
+      const stolen = Math.min(purse, Math.max(1, Math.floor(purse * 0.1)));
+      if (this.isEndless) this._runGold -= stolen; else saveManager.data.gold -= stolen;
       floatText(this, 270, this.crystalY - 45, `-${stolen}🪙`, "#ffbb55", 16);
     }
     this.cameras.main.shake(hero.isBoss ? 300 : 80, hero.isBoss ? 0.015 : 0.006);
@@ -862,7 +923,7 @@ export class GameScene extends Phaser.Scene {
         this._usedSecondChanceThisRun = true;
         saveManager.data.secondChanceCharges--;
         this.crystalHP = Math.floor(saveManager.data.maxCrystalHP * 0.5);
-        floatText(this, 270, this.crystalY - 50, "ВТОРОЙ ШАНС!", "#ffff00", 24);
+        floatText(this, 270, this.crystalY - 50, t("game_second_chance"), "#ffff00", 24);
         audio.crystalHeal();
         this.refreshUI();
         return;
@@ -895,6 +956,9 @@ export class GameScene extends Phaser.Scene {
     this.startWaveButton.setLabel(t("game_start_wave"));
     const regen = saveManager.data.regenPerWave ?? 2;
     this.crystalHP = Math.min(saveManager.data.maxCrystalHP, this.crystalHP + regen);
+
+    if (this.isEndless) { this._onEndlessWaveComplete(); return; }
+
     const raw = getWaveBonus(saveManager.data.wave, saveManager.data);
     this.pendingReward = {
       gold: Math.floor(raw.gold * (saveManager.data.goldMultiplier ?? 1)),
@@ -911,6 +975,38 @@ export class GameScene extends Phaser.Scene {
     this.selectTool(this.selectedTool);
     audio.waveComplete();
     this.openWavePopup();
+  }
+
+  /** Волна Бездны пройдена: авто-переход к следующей, промежуточные награды. */
+  _onEndlessWaveComplete() {
+    const wave = this._endlessWave;
+    const prev = saveManager.data.stats?.endlessMaxWave || 0;
+    saveManager.setStatMax("endlessMaxWave", wave);
+
+    // 🔮 за каждую 5-ю волну, пополнение казны забега за каждую 10-ю.
+    if (wave % ENDLESS.essenceEveryWaves === 0) {
+      saveManager.grantReward({ essence: 1 });
+      floatText(this, 270, this.crystalY - 50, "+1🔮", "#cc88ff", 18);
+    }
+    if (wave % ENDLESS.bonusGoldEveryWaves === 0) {
+      this._runGold += ENDLESS.bonusGold;
+      floatText(this, 270, this.crystalY - 70, `+${ENDLESS.bonusGold}🪙`, "#ffd700", 18);
+    }
+    if (wave > prev) achievements.checkAll();
+    saveManager.saveThrottled();
+
+    this.refreshUI();
+    this.helpText.setText(t("endless_wave_done", wave, this.waveKills));
+    this.rebuildToolbar();
+    this.selectTool(this.selectedTool);
+    audio.waveComplete();
+    this._endlessWave++;
+    this.time.delayedCall(ENDLESS.waveDelayMs, () => {
+      if (!this.gameOverState && this.scene.isActive()) {
+        this.helpText.setText(t("endless_wave_next", this._endlessWave));
+        this.startWave();
+      }
+    });
   }
 
   abortWaveAndRollback() {
@@ -962,6 +1058,7 @@ export class GameScene extends Phaser.Scene {
     saveManager.data.gold += this.pendingReward.gold * mult;
     saveManager.data.souls += this.pendingReward.souls * mult;
     saveManager.data.wave++;
+    saveManager.incStat("wavesCompleted", 1);
     this.pendingReward = null;
     this._runSnapshot = null;
     if (mult === 2) audio.coinCollect();
@@ -978,9 +1075,36 @@ export class GameScene extends Phaser.Scene {
     const D = 500;
     const overlay = this.add.rectangle(270, 480, 540, 960, 0x000000, 0.76).setInteractive().setDepth(D);
     const panel = this.add.rectangle(270, 450, 440, 280, 0x3a1f2e).setStrokeStyle(3, 0xff8fa3).setDepth(D + 1);
-    const title = this.add.text(270, 365, t("popup_game_over"), {
+    const title = this.add.text(270, 365, this.isEndless ? t("endless_over") : t("popup_game_over"), {
       fontFamily: "Arial", fontSize: "24px", color: "#ffffff", fontStyle: "bold"
     }).setOrigin(0.5).setDepth(D + 2);
+
+    if (this.isEndless) {
+      // Финальная награда Бездны: накопленные души + бонус за волны. Начисляется один раз.
+      const wavesDone = Math.max(0, this._endlessWave - 1);
+      const souls = this._endlessSoulsEarned + wavesDone * ENDLESS.endSoulsPerWave;
+      this._endlessSoulsEarned = 0;
+      if (souls > 0) saveManager.grantReward({ souls });
+      saveManager.saveThrottled();
+      const body = this.add.text(270, 430, [
+        t("endless_record", wavesDone),
+        t("endless_best", saveManager.data.stats?.endlessMaxWave || wavesDone),
+        "",
+        t("endless_reward", souls),
+      ].join("\n"), { fontFamily: "Arial", fontSize: "16px", color: "#f1dbe4", align: "center", lineSpacing: 5 }).setOrigin(0.5).setDepth(D + 2);
+      const againBtn = createButton(this, 165, 540, 160, 52, t("endless_again"), async () => {
+        this.clearHeroes(); this.gridItems.clear(); this.gameOverState = false;
+        this._skipShutdownPersist = true;
+        this.scene.restart({ mode: "endless" });
+      }, { textSize: "15px", depth: D + 3 });
+      const menuBtn = createButton(this, 375, 540, 160, 52, t("endless_to_menu"), async () => {
+        await saveManager.save();
+        this.scene.start("MenuScene");
+      }, { color: 0x2b5c3c, hoverColor: 0x3a7a50, stroke: 0x7effa7, textSize: "15px", depth: D + 3 });
+      this.popupObjects.push(overlay, panel, title, body, againBtn.bg, againBtn.txt, menuBtn.bg, menuBtn.txt);
+      return;
+    }
+
     const body = this.add.text(270, 430, [
       t("popup_reached_wave", saveManager.data.wave),
       t("popup_saved_souls", saveManager.data.souls),
@@ -1014,9 +1138,13 @@ export class GameScene extends Phaser.Scene {
   refreshUI(force = false) {
     const d = saveManager.data;
     const c = this._uiCache;
-    if (force || c.wave !== d.wave) { this.waveText.setText(t("game_wave", d.wave)); c.wave = d.wave; }
-    if (force || c.gold !== d.gold) { this.goldText.setText(`🪙 ${d.gold}`); c.gold = d.gold; }
-    if (force || c.souls !== d.souls) { this.soulsText.setText(`💀 ${d.souls}`); c.souls = d.souls; }
+    const wave = this.waveNo(), gold = this.goldAmt();
+    if (force || c.wave !== wave) {
+      this.waveText.setText(this.isEndless ? t("endless_wave", wave) : t("game_wave", wave));
+      c.wave = wave;
+    }
+    if (force || c.gold !== gold) { this.goldText.setText(`🪙 ${gold}`); c.gold = gold; }
+    if (force || c.souls !== d.souls || this.isEndless) { this.soulsText.setText(`💀 ${d.souls}${this.isEndless ? ` +${this._endlessSoulsEarned}` : ""}`); c.souls = d.souls; }
     if (force || c.hp !== this.crystalHP || c.maxHp !== d.maxCrystalHP) {
       this.hpText.setText(t("game_hp", this.crystalHP, d.maxCrystalHP));
       c.hp = this.crystalHP; c.maxHp = d.maxCrystalHP;
@@ -1030,6 +1158,11 @@ export class GameScene extends Phaser.Scene {
   resumeAfterAd() { this.adPaused = false; }
 
   async persistProgress() {
+    if (this.isEndless) {
+      // Доска/валюта забега не персистятся: награда Бездны выдаётся только по факту конца забега.
+      await saveManager.save();
+      return;
+    }
     saveManager.data.crystalHP = this.crystalHP;
     saveManager.data.board = [];
     for (const i of this.gridItems.values()) saveManager.data.board.push({ row: i.row, col: i.col, kind: i.kind, type: i.type, level: i.level });

@@ -1,4 +1,5 @@
 import { t } from "./i18n.js";
+import { TOOL_DEFS, toolLabel } from "./config.js";
 // ============================================================
 // Процедурная графика с кэшированием текстур
 // ============================================================
@@ -437,16 +438,33 @@ export function spawnPlaceEffect(scene, x, y, color = 0x00fff5) {
   });
 }
 
-export function spawnBossWarning(scene) {
+export function spawnBossWarning(scene, bossType = null) {
   const warn = scene.add.text(270, 480, t("game_boss_incoming"), {
     fontFamily: "Arial", fontSize: "36px", color: "#ff3333",
     fontStyle: "bold", stroke: "#000000", strokeThickness: 5
   }).setOrigin(0.5).setDepth(9000).setAlpha(0);
+  let hint = null;
+  if (bossType?.weaknessTool) {
+    const toolDef = TOOL_DEFS[bossType.weaknessTool];
+    if (toolDef) {
+      hint = scene.add.text(270, 535, t("game_boss_weakness", toolLabel(toolDef), 25), {
+        fontFamily: "Arial", fontSize: "18px", color: "#ffd700",
+        stroke: "#000000", strokeThickness: 4
+      }).setOrigin(0.5).setDepth(9000).setAlpha(0);
+    }
+  }
   scene.tweens.add({
     targets: warn, alpha: 1, scaleX: 1.2, scaleY: 1.2,
     yoyo: true, duration: 600, repeat: 1,
     onComplete: () => warn.destroy(),
   });
+  if (hint) {
+    scene.tweens.add({
+      targets: hint, alpha: 1, duration: 400, delay: 500,
+      hold: 1800, yoyo: true,
+      onComplete: () => hint.destroy(),
+    });
+  }
   scene.cameras.main.shake(400, 0.01);
 }
 

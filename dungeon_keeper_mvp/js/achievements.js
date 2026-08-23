@@ -37,10 +37,7 @@ class AchievementManager {
         saveManager.data.achievements[ach.id] = {
           unlockedAt: Date.now(),
         };
-        if (ach.reward) {
-          if (ach.reward.gold) saveManager.data.gold += ach.reward.gold;
-          if (ach.reward.souls) saveManager.data.souls += ach.reward.souls;
-        }
+        if (ach.reward) saveManager.grantReward(ach.reward);
         unlocked.push(ach);
       }
     }

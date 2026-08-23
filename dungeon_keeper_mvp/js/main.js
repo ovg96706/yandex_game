@@ -4,8 +4,12 @@ import { PreloaderScene } from "./scenes/PreloaderScene.js";
 import { MenuScene } from "./scenes/MenuScene.js";
 import { ShopScene } from "./scenes/ShopScene.js";
 import { GameScene } from "./scenes/GameScene.js";
+import { EndlessScene } from "./scenes/EndlessScene.js";
 import { DailyScene } from "./scenes/DailyScene.js";
 import { WheelScene } from "./scenes/WheelScene.js";
+import { QuestsScene } from "./scenes/QuestsScene.js";
+import { TalentsScene } from "./scenes/TalentsScene.js";
+import { BestiaryScene } from "./scenes/BestiaryScene.js";
 import { AchievementsScene } from "./scenes/AchievementsScene.js";
 import { LeaderboardScene } from "./scenes/LeaderboardScene.js";
 import { SettingsScene } from "./scenes/SettingsScene.js";
@@ -23,8 +27,9 @@ window.addEventListener("load", () => {
     },
     scene: [
       BootScene, PreloaderScene, MenuScene,
-      ShopScene, GameScene,
-      DailyScene, WheelScene,
+      ShopScene, GameScene, EndlessScene,
+      DailyScene, WheelScene, QuestsScene,
+      TalentsScene, BestiaryScene,
       AchievementsScene, LeaderboardScene,
       SettingsScene,
     ],
