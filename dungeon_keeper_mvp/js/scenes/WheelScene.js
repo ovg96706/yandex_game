@@ -170,6 +170,10 @@ export class WheelScene extends Phaser.Scene {
       saveManager.data.crystalHP = Math.min(saveManager.data.maxCrystalHP, saveManager.data.crystalHP + sector.crystalHP);
       parts.push(`+${sector.crystalHP}❤️`);
     }
+    if (sector.darkCrystals) {
+      saveManager.grantReward({ darkCrystals: sector.darkCrystals });
+      parts.push(`+${sector.darkCrystals}💎`);
+    }
     saveManager.data.wheelTotalSpins = (saveManager.data.wheelTotalSpins || 0) + 1;
     saveManager.save();
     audio.levelUp();

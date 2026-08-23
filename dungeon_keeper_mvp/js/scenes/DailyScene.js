@@ -86,6 +86,12 @@ export class DailyScene extends Phaser.Scene {
         fontFamily: "Arial", fontSize: "12px", color: "#57ffb8",
       }).setOrigin(0.5);
 
+      if (reward.darkCrystals) {
+        this.add.text(x, y + 49, `${reward.darkCrystals}💎`, {
+          fontFamily: "Arial", fontSize: "12px", color: "#cc88ff", fontStyle: "bold",
+        }).setOrigin(0.5);
+      }
+
       if (isClaimed) {
         this.add.text(x + cardW / 2 - 12, y - cardH / 2 + 12, "✓", {
           fontFamily: "Arial", fontSize: "18px", color: "#00ff00", fontStyle: "bold",
@@ -140,14 +146,18 @@ export class DailyScene extends Phaser.Scene {
   async claim(multiplier) {
     if (!canClaimDaily(saveManager.data)) { audio.error(); return; }
     const reward = DAILY_REWARDS[(saveManager.data.dailyStreak || 0) % DAILY_REWARDS.length];
-    saveManager.data.gold += reward.gold * multiplier;
-    saveManager.data.souls += reward.souls * multiplier;
+    saveManager.grantReward({
+      gold: reward.gold * multiplier,
+      souls: reward.souls * multiplier,
+      darkCrystals: (reward.darkCrystals || 0) * multiplier,
+    });
     saveManager.data.dailyStreak = (saveManager.data.dailyStreak || 0) + 1;
     saveManager.data.dailyLastClaimAt = Date.now();
     await saveManager.save();
     audio.purchase(); audio.coinCollect();
+    const extra = reward.darkCrystals ? `  +${reward.darkCrystals * multiplier}💎` : "";
     floatText(this, 270, 400,
-      `+${reward.gold * multiplier}🪙  +${reward.souls * multiplier}💀`,
+      `+${reward.gold * multiplier}🪙  +${reward.souls * multiplier}💀${extra}`,
       "#ffff00", 26);
     this.time.delayedCall(800, () => this.scene.restart({ returnTo: this.returnTo }));
   }

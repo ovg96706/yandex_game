@@ -42,10 +42,13 @@ export const HERO_TYPES = {
   thief: { id: "thief", labelKey: "hero_thief", label: "Вор", hpMult: 0.7, speedMult: 1.6, goldReward: 7, soulReward: 4, isBoss: false, minWave: 8, weight: 5, scale: 0.9 },
   knight: { id: "knight", labelKey: "hero_knight", label: "Рыцарь", hpMult: 2.2, speedMult: 0.7, goldReward: 10, soulReward: 6, isBoss: false, minWave: 10, weight: 5, scale: 1.1 },
   healer: { id: "healer", labelKey: "hero_healer", label: "Целитель", hpMult: 1.0, speedMult: 0.9, goldReward: 9, soulReward: 5, healAmount: 0.1, healInterval: 3000, isBoss: false, minWave: 12, weight: 4, scale: 1 },
-  paladin: { id: "paladin", labelKey: "hero_paladin", label: "Паладин", hpMult: 6, speedMult: 0.5, goldReward: 40, soulReward: 25, isBoss: true, minWave: 10, bossInterval: 5, scale: 1.5, shieldHits: 3 },
-  archmage: { id: "archmage", labelKey: "hero_archmage", label: "Архимаг", hpMult: 8, speedMult: 0.45, goldReward: 70, soulReward: 45, isBoss: true, minWave: 20, bossInterval: 5, scale: 1.5, disableTraps: true, monsterDebuffInterval: 4000 },
-  king: { id: "king", labelKey: "hero_king", label: "Король", hpMult: 15, speedMult: 0.35, goldReward: 150, soulReward: 100, isBoss: true, minWave: 30, bossInterval: 10, scale: 1.8, summonInterval: 4000, summonCount: 2 },
+  paladin: { id: "paladin", labelKey: "hero_paladin", label: "Паладин", hpMult: 6, speedMult: 0.5, goldReward: 40, soulReward: 25, isBoss: true, minWave: 10, bossInterval: 5, scale: 1.5, shieldHits: 3, weaknessTool: "poison" },
+  archmage: { id: "archmage", labelKey: "hero_archmage", label: "Архимаг", hpMult: 8, speedMult: 0.45, goldReward: 70, soulReward: 45, isBoss: true, minWave: 20, bossInterval: 5, scale: 1.5, disableTraps: true, monsterDebuffInterval: 4000, weaknessTool: "fire_tile" },
+  king: { id: "king", labelKey: "hero_king", label: "Король", hpMult: 15, speedMult: 0.35, goldReward: 150, soulReward: 100, isBoss: true, minWave: 30, bossInterval: 10, scale: 1.8, summonInterval: 4000, summonCount: 2, weaknessTool: "lightning" },
 };
+
+/** Бонус урона по слабости босса (+25%). */
+export const BOSS_WEAKNESS_BONUS = 0.25;
 
 // ============================
 // КАТЕГОРИИ УЛУЧШЕНИЙ
@@ -220,6 +223,98 @@ export const SHOP_UPGRADES = {
 };
 
 // ============================
+// ДЕРЕВО ТАЛАНТОВ КРИСТАЛЛА
+// ============================
+
+export const TALENT_BRANCHES = {
+  shadow:  { labelKey: "talents_branch_shadow",  icon: "🗡️", currency: "souls",         color: 0x57ffb8 },
+  abyss:   { labelKey: "talents_branch_abyss",   icon: "💎", currency: "darkCrystals",  color: 0x00fff5 },
+  essence: { labelKey: "talents_branch_essence", icon: "🔮", currency: "essence",       color: 0xcc88ff },
+};
+
+// Ветка линейная: талант доступен, если предыдущий (requires) имеет уровень >= 1.
+export const TALENTS = {
+  shadow_power: {
+    id: "shadow_power", branch: "shadow", tier: 1, requires: null,
+    labelKey: "talent_shadow_power", descKey: "talent_shadow_power_desc",
+    icon: "🗡️", maxLevel: 5, baseCost: 150, costMultiplier: 1.6,
+    apply(s, l) { s.trapDamageBonus *= 1 + 0.04 * l; s.monsterDamageBonus *= 1 + 0.04 * l; },
+  },
+  shadow_crit: {
+    id: "shadow_crit", branch: "shadow", tier: 2, requires: "shadow_power",
+    labelKey: "talent_shadow_crit", descKey: "talent_shadow_crit_desc",
+    icon: "🎲", maxLevel: 3, baseCost: 400, costMultiplier: 1.8,
+    apply(s, l) { s.critChance = Math.min(0.8, s.critChance + 0.02 * l); },
+  },
+  shadow_speed: {
+    id: "shadow_speed", branch: "shadow", tier: 3, requires: "shadow_crit",
+    labelKey: "talent_shadow_speed", descKey: "talent_shadow_speed_desc",
+    icon: "⏩", maxLevel: 3, baseCost: 350, costMultiplier: 1.7,
+    apply(s, l) { const k = 1 - 0.04 * l; s.trapSpeedBonus = Math.max(0.4, s.trapSpeedBonus * k); s.monsterSpeedBonus = Math.max(0.4, s.monsterSpeedBonus * k); },
+  },
+  shadow_merge: {
+    id: "shadow_merge", branch: "shadow", tier: 4, requires: "shadow_speed",
+    labelKey: "talent_shadow_merge", descKey: "talent_shadow_merge_desc",
+    icon: "🔀", maxLevel: 3, baseCost: 500, costMultiplier: 1.8,
+    apply(s, l) { s.mergeLevelBonus *= 1 + 0.06 * l; },
+  },
+
+  abyss_hp: {
+    id: "abyss_hp", branch: "abyss", tier: 1, requires: null,
+    labelKey: "talent_abyss_hp", descKey: "talent_abyss_hp_desc",
+    icon: "💗", maxLevel: 5, baseCost: 2, costMultiplier: 1.5,
+    apply(s, l) { s.maxCrystalHP += 15 * l; s.crystalHP = Math.min(s.crystalHP, s.maxCrystalHP); },
+  },
+  abyss_regen: {
+    id: "abyss_regen", branch: "abyss", tier: 2, requires: "abyss_hp",
+    labelKey: "talent_abyss_regen", descKey: "talent_abyss_regen_desc",
+    icon: "💚", maxLevel: 3, baseCost: 3, costMultiplier: 1.6,
+    apply(s, l) { s.regenPerWave += l; },
+  },
+  abyss_offline: {
+    id: "abyss_offline", branch: "abyss", tier: 3, requires: "abyss_regen",
+    labelKey: "talent_abyss_offline", descKey: "talent_abyss_offline_desc",
+    icon: "🌙", maxLevel: 3, baseCost: 3, costMultiplier: 1.6,
+    apply(s, l) { s.offlineBonus = 1 + 0.25 * l; },
+  },
+  abyss_shield: {
+    id: "abyss_shield", branch: "abyss", tier: 4, requires: "abyss_offline",
+    labelKey: "talent_abyss_shield", descKey: "talent_abyss_shield_desc",
+    icon: "🛡️", maxLevel: 3, baseCost: 4, costMultiplier: 1.7,
+    apply(s, l) { s.crystalDamageReduction = Math.min(0.6, s.crystalDamageReduction + 0.04 * l); },
+  },
+
+  essence_gold: {
+    id: "essence_gold", branch: "essence", tier: 1, requires: null,
+    labelKey: "talent_essence_gold", descKey: "talent_essence_gold_desc",
+    icon: "🪙", maxLevel: 5, baseCost: 3, costMultiplier: 1.5,
+    apply(s, l) { s.goldMultiplier *= 1 + 0.10 * l; },
+  },
+  essence_wave: {
+    id: "essence_wave", branch: "essence", tier: 2, requires: "essence_gold",
+    labelKey: "talent_essence_wave", descKey: "talent_essence_wave_desc",
+    icon: "🏆", maxLevel: 3, baseCost: 4, costMultiplier: 1.6,
+    apply(s, l) { s.waveBonusMultiplier *= 1 + 0.10 * l; },
+  },
+  essence_boss: {
+    id: "essence_boss", branch: "essence", tier: 3, requires: "essence_wave",
+    labelKey: "talent_essence_boss", descKey: "talent_essence_boss_desc",
+    icon: "👑", maxLevel: 3, baseCost: 5, costMultiplier: 1.7,
+    apply(s, l) { s.bossDamageBonus *= 1 + 0.12 * l; },
+  },
+  essence_drop: {
+    id: "essence_drop", branch: "essence", tier: 4, requires: "essence_boss",
+    labelKey: "talent_essence_drop", descKey: "talent_essence_drop_desc",
+    icon: "🔮", maxLevel: 2, baseCost: 6, costMultiplier: 2.0,
+    apply(s, l) { s.essenceDropChance = 0.25 * l; },
+  },
+};
+
+export function getTalentCost(def, level) {
+  return Math.max(1, Math.floor(def.baseCost * Math.pow(def.costMultiplier, level)));
+}
+
+// ============================
 // ЕЖЕДНЕВНЫЕ / КОЛЕСО
 // ============================
 
@@ -230,7 +325,7 @@ export const DAILY_REWARDS = [
   { day: 4, gold: 500, souls: 100 },
   { day: 5, gold: 700, souls: 150 },
   { day: 6, gold: 1000, souls: 220 },
-  { day: 7, gold: 1500, souls: 350 },
+  { day: 7, gold: 1500, souls: 350, darkCrystals: 2 },
 ];
 export const DAILY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 export const DAILY_STREAK_LIMIT_MS = 48 * 60 * 60 * 1000;
@@ -243,7 +338,7 @@ export const WHEEL_SECTORS = [
   { id: "heal", label: "+5 HP", color: 0x00fff5, crystalHP: 5, weight: 10 },
   { id: "gold_l", label: "400🪙", color: 0xff5500, gold: 400, weight: 8 },
   { id: "souls_l", label: "80💀", color: 0x00ffaa, souls: 80, weight: 6 },
-  { id: "jackpot", label: "🎁 ДЖЕКПОТ", color: 0xff00ff, gold: 1000, souls: 200, crystalHP: 10, weight: 2 },
+  { id: "jackpot", label: "🎁 ДЖЕКПОТ", color: 0xff00ff, gold: 1000, souls: 200, crystalHP: 10, darkCrystals: 1, weight: 2 },
 ];
 export const WHEEL_FREE_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
@@ -253,7 +348,122 @@ export function getOfflineIncome(save, elapsedMs) {
   const minutes = Math.floor(Math.max(0, Math.min(elapsedMs, OFFLINE_MAX_MS)) / 60000);
   const pieces = Array.isArray(save?.board) ? save.board.length : 0;
   if (!minutes || !pieces) return { gold: 0, souls: 0, minutes };
-  return { gold: Math.floor(minutes * pieces * 0.5), souls: Math.floor(minutes * pieces * 0.2), minutes };
+  const bonus = save.offlineBonus ?? 1;
+  return { gold: Math.floor(minutes * pieces * 0.5 * bonus), souls: Math.floor(minutes * pieces * 0.2 * bonus), minutes };
+}
+
+// ============================
+// ЗАДАНИЯ (DAILY / WEEKLY)
+// ============================
+
+export const QUEST_KIND_META = {
+  kills:   { icon: "🗡️", labelKey: "quest_kind_kills" },
+  merges:  { icon: "🔀", labelKey: "quest_kind_merges" },
+  waves:   { icon: "⚔️", labelKey: "quest_kind_waves" },
+  bosses:  { icon: "👑", labelKey: "quest_kind_bosses" },
+};
+
+// Цели и награды живут только в коде — сохранение хранит лишь baseline и факт получения награды.
+export const QUEST_POOLS = {
+  daily: [
+    { id: "d_kills",  kind: "kills",  stat: "totalKills",      goals: [15, 25, 40],   rewards: [{ gold: 150 }, { gold: 260 }, { souls: 90 }] },
+    { id: "d_merges", kind: "merges", stat: "totalMerges",     goals: [5, 10, 15],    rewards: [{ gold: 120 }, { souls: 60 }, { souls: 100 }] },
+    { id: "d_waves",  kind: "waves",  stat: "wavesCompleted",  goals: [3, 5, 8],      rewards: [{ gold: 200 }, { souls: 80 }, { gold: 350 }] },
+    { id: "d_boss",   kind: "bosses", stat: "bossKills",       goals: [1, 2, 3],      rewards: [{ souls: 60 }, { souls: 110 }, { essence: 1 }] },
+  ],
+  weekly: [
+    { id: "w_kills",  kind: "kills",  stat: "totalKills",     goals: [150, 250, 400],  rewards: [{ gold: 900 }, { souls: 350 }, { darkCrystals: 1 }] },
+    { id: "w_merges", kind: "merges", stat: "totalMerges",    goals: [40, 70, 110],    rewards: [{ gold: 700 }, { souls: 300 }, { essence: 2 }] },
+    { id: "w_waves",  kind: "waves",  stat: "wavesCompleted", goals: [20, 35, 50],     rewards: [{ gold: 1200 }, { souls: 450 }, { essence: 3 }] },
+    { id: "w_boss",   kind: "bosses", stat: "bossKills",      goals: [5, 10, 15],      rewards: [{ souls: 400 }, { essence: 2 }, { darkCrystals: 2 }] },
+  ],
+};
+
+export const QUESTS_PER_PERIOD = 3;
+
+/** Детерминированный ГПСЧ (mulberry32) — одинаковые задания у всех игроков за период. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hashSeed(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+
+/** Ключ суточного периода (UTC). */
+export function dailyPeriodKey(now = Date.now()) {
+  const d = new Date(now);
+  return `d${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+}
+/** Ключ недельного периода (понедельник UTC). */
+export function weeklyPeriodKey(now = Date.now()) {
+  const d = new Date(now);
+  const weekday = (d.getUTCDay() + 6) % 7; // 0 = понедельник
+  d.setUTCDate(d.getUTCDate() - weekday);
+  return `w${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`;
+}
+export function questPeriodKey(kind, now = Date.now()) {
+  return kind === "weekly" ? weeklyPeriodKey(now) : dailyPeriodKey(now);
+}
+
+/** Выбор 3 заданий из пула детерминированно по ключу периода. */
+export function generateQuests(kind, periodKey) {
+  const pool = QUEST_POOLS[kind] || [];
+  if (!pool.length) return [];
+  const rng = mulberry32(hashSeed(`${kind}:${periodKey}`));
+  const idx = pool.map((_, i) => i);
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  const chosen = idx.slice(0, Math.min(QUESTS_PER_PERIOD, idx.length)).sort((a, b) => a - b);
+  return chosen.map((i) => {
+    const def = pool[i];
+    const tier = Math.floor(rng() * def.goals.length);
+    return { id: def.id, kind: def.kind, stat: def.stat, goal: def.goals[tier], reward: def.rewards[tier] };
+  });
+}
+
+/** Текст награды для UI. */
+export function rewardText(reward) {
+  if (!reward) return "";
+  const parts = [];
+  if (reward.gold) parts.push(`+${reward.gold}🪙`);
+  if (reward.souls) parts.push(`+${reward.souls}💀`);
+  if (reward.darkCrystals) parts.push(`+${reward.darkCrystals}💎`);
+  if (reward.essence) parts.push(`+${reward.essence}🔮`);
+  return parts.join("  ");
+}
+
+// ============================
+// РЕЖИМ «БЕЗДНА» (ENDLESS)
+// ============================
+
+export const ENDLESS = {
+  unlockMaxWave: 30,       // открывается после 30-й волны кампании
+  startGold: 300,          // локальное золото забега
+  waveDelayMs: 3500,       // пауза между волнами
+  bossEveryWaves: 5,       // босс каждую 5-ю волну
+  essenceEveryWaves: 5,    // 🔮 за каждую 5-ю волну
+  bonusGoldEveryWaves: 10, // пополнение золота забега
+  bonusGold: 250,
+  hpGrowth: 0.07,          // +7% HP врага за волну
+  speedGrowth: 0.012,      // +1.2% скорости за волну (кап +60%)
+  speedCap: 0.6,
+  killGoldFactor: 0.5,     // золото за убийства — только в золото забега
+  endSoulsPerWave: 12,     // финальная награда душами за волну
+};
+
+export function getEndlessBossType(wave) {
+  const bosses = ["paladin", "archmage", "king"];
+  return HERO_TYPES[bosses[Math.floor((wave - 1) / ENDLESS.bossEveryWaves) % bosses.length]] || null;
 }
 
 // ============================
@@ -287,6 +497,38 @@ export const ACHIEVEMENTS = [
   { id: "gold_1k", labelKey: "ach_gold_1k", descKey: "ach_gold_1k_desc", category: "special", icon: "💰", stat: "gold", goal: 1000, reward: { gold: 100, souls: 30 } },
   { id: "gold_10k", labelKey: "ach_gold_10k", descKey: "ach_gold_10k_desc", category: "special", icon: "💰", stat: "gold", goal: 10000, reward: { gold: 500, souls: 150 } },
   { id: "souls_1k", labelKey: "ach_souls_1k", descKey: "ach_souls_1k_desc", category: "special", icon: "💀", stat: "souls", goal: 1000, reward: { gold: 500, souls: 200 } },
+
+  // === МЕТА-ПРОГРЕСС (квесты, валюты, таланты, бестиарий, бездна) ===
+  { id: "quest_d_1", labelKey: "ach_quest_d_1", descKey: "ach_quest_d_1_desc", category: "special", icon: "📜", stat: "dailyQuestsCompleted", goal: 1, reward: { gold: 150, souls: 50 } },
+  { id: "quest_d_15", labelKey: "ach_quest_d_15", descKey: "ach_quest_d_15_desc", category: "special", icon: "📜", stat: "dailyQuestsCompleted", goal: 15, reward: { gold: 1200, souls: 300, darkCrystals: 1 } },
+  { id: "quest_w_1", labelKey: "ach_quest_w_1", descKey: "ach_quest_w_1_desc", category: "special", icon: "🗓️", stat: "weeklyQuestsCompleted", goal: 1, reward: { souls: 300, essence: 2 } },
+  { id: "quest_w_5", labelKey: "ach_quest_w_5", descKey: "ach_quest_w_5_desc", category: "special", icon: "🗓️", stat: "weeklyQuestsCompleted", goal: 5, reward: { gold: 3000, darkCrystals: 3 } },
+  { id: "crystal_1", labelKey: "ach_crystal_1", descKey: "ach_crystal_1_desc", category: "special", icon: "💎", stat: "darkCrystalsTotal", goal: 1, reward: { gold: 300 } },
+  { id: "crystal_10", labelKey: "ach_crystal_10", descKey: "ach_crystal_10_desc", category: "special", icon: "💎", stat: "darkCrystalsTotal", goal: 10, reward: { gold: 2500, souls: 500 } },
+  { id: "essence_10", labelKey: "ach_essence_10", descKey: "ach_essence_10_desc", category: "special", icon: "🔮", stat: "essenceTotal", goal: 10, reward: { gold: 800, souls: 250 } },
+  { id: "essence_50", labelKey: "ach_essence_50", descKey: "ach_essence_50_desc", category: "special", icon: "🔮", stat: "essenceTotal", goal: 50, reward: { darkCrystals: 3 } },
+  { id: "talent_1", labelKey: "ach_talent_1", descKey: "ach_talent_1_desc", category: "upgrades", icon: "🌌", stat: "talentsBought", goal: 1, reward: { gold: 200, souls: 80 } },
+  { id: "talent_10", labelKey: "ach_talent_10", descKey: "ach_talent_10_desc", category: "upgrades", icon: "🌌", stat: "talentsBought", goal: 10, reward: { souls: 600, essence: 2 } },
+  { id: "talent_25", labelKey: "ach_talent_25", descKey: "ach_talent_25_desc", category: "upgrades", icon: "🌌", stat: "talentsBought", goal: 25, reward: { darkCrystals: 2, essence: 3 } },
+  { id: "bestiary_half", labelKey: "ach_bestiary_half", descKey: "ach_bestiary_half_desc", category: "special", icon: "📖", stat: "discoveredUnits", goal: 8, reward: { gold: 400, souls: 120 } },
+  { id: "bestiary_units", labelKey: "ach_bestiary_units", descKey: "ach_bestiary_units_desc", category: "special", icon: "📖", stat: "discoveredUnits", goal: 15, reward: { souls: 500, darkCrystals: 1 } },
+  { id: "bestiary_heroes", labelKey: "ach_bestiary_heroes", descKey: "ach_bestiary_heroes_desc", category: "special", icon: "📖", stat: "discoveredHeroes", goal: 10, reward: { souls: 400, essence: 2 } },
+  { id: "endless_10", labelKey: "ach_endless_10", descKey: "ach_endless_10_desc", category: "waves", icon: "♾️", stat: "endlessMaxWave", goal: 10, reward: { souls: 400, essence: 1 } },
+  { id: "endless_25", labelKey: "ach_endless_25", descKey: "ach_endless_25_desc", category: "waves", icon: "♾️", stat: "endlessMaxWave", goal: 25, reward: { souls: 1500, essence: 3 } },
+  { id: "endless_50", labelKey: "ach_endless_50", descKey: "ach_endless_50_desc", category: "waves", icon: "♾️", stat: "endlessMaxWave", goal: 50, reward: { darkCrystals: 5, essence: 5 } },
+
+  // === РАСШИРЕННЫЕ ЦЕЛИ ===
+  { id: "wave_150", labelKey: "ach_wave_150", descKey: "ach_wave_150_desc", category: "waves", icon: "⚔️", stat: "maxWave", goal: 150, reward: { gold: 25000, souls: 4000 } },
+  { id: "wave_200", labelKey: "ach_wave_200", descKey: "ach_wave_200_desc", category: "waves", icon: "👑", stat: "maxWave", goal: 200, reward: { gold: 60000, souls: 8000, darkCrystals: 2 } },
+  { id: "kills_10000", labelKey: "ach_kills_10000", descKey: "ach_kills_10000_desc", category: "kills", icon: "🗡️", stat: "totalKills", goal: 10000, reward: { gold: 12000, souls: 2500 } },
+  { id: "kills_25000", labelKey: "ach_kills_25000", descKey: "ach_kills_25000_desc", category: "kills", icon: "☠️", stat: "totalKills", goal: 25000, reward: { darkCrystals: 3, essence: 3 } },
+  { id: "boss_100", labelKey: "ach_boss_100", descKey: "ach_boss_100_desc", category: "bosses", icon: "👑", stat: "bossKills", goal: 100, reward: { gold: 10000, souls: 2500, essence: 2 } },
+  { id: "merge_500", labelKey: "ach_merge_500", descKey: "ach_merge_500_desc", category: "special", icon: "🔀", stat: "totalMerges", goal: 500, reward: { gold: 4000, souls: 900 } },
+  { id: "merge_2000", labelKey: "ach_merge_2000", descKey: "ach_merge_2000_desc", category: "special", icon: "🔀", stat: "totalMerges", goal: 2000, reward: { darkCrystals: 2, essence: 2 } },
+  { id: "daily_100", labelKey: "ach_daily_100", descKey: "ach_daily_100_desc", category: "special", icon: "📅", stat: "dailyStreak", goal: 100, reward: { darkCrystals: 3 } },
+  { id: "wheel_150", labelKey: "ach_wheel_150", descKey: "ach_wheel_150_desc", category: "special", icon: "🎡", stat: "wheelTotalSpins", goal: 150, reward: { souls: 2000, essence: 2 } },
+  { id: "gold_100k", labelKey: "ach_gold_100k", descKey: "ach_gold_100k_desc", category: "special", icon: "💰", stat: "gold", goal: 100000, reward: { souls: 3000 } },
+  { id: "souls_10k", labelKey: "ach_souls_10k", descKey: "ach_souls_10k_desc", category: "special", icon: "💀", stat: "souls", goal: 10000, reward: { darkCrystals: 2 } },
 ];
 
 export const ACHIEVEMENT_CATEGORIES = {
@@ -301,7 +543,8 @@ export const ACHIEVEMENT_CATEGORIES = {
 // ФУНКЦИИ
 // ============================
 
-export function getWaveEnemyCount(w) { return 4 + Math.floor(w * 1.5); }
+// Верхняя граница врагов на волну — защита от деградации FPS на больших волнах (аудит №21).
+export function getWaveEnemyCount(w) { return Math.min(64, 4 + Math.floor(w * 1.5)); }
 export function getBaseHeroHP(w) { return 40 + w * 15; }
 export function getBaseHeroSpeed(w) { return 34 + Math.min(w * 2, 60); }
 
@@ -338,17 +581,19 @@ export function getToolCost(toolDef, save) {
 /**
  * Расчёт урона с учётом всех бонусов, критов и merge_power.
  * isBoss — увеличивает урон по боссу.
+ * weaknessTool — инструмент-слабость цели: +BOSS_WEAKNESS_BONUS урона.
  * Возвращает { damage, isCrit }.
  */
-export function computeDamage(toolDef, level, save, isBossTarget = false) {
+export function computeDamage(toolDef, level, save, isBossTarget = false, weaknessTool = null) {
   const kindBonus = toolDef.kind === "trap"
     ? (save.trapDamageBonus ?? 1)
     : (save.monsterDamageBonus ?? 1);
 
   const mergeBonus = save.mergeLevelBonus ?? 1;
   const bossBonus = isBossTarget ? (save.bossDamageBonus ?? 1) : 1;
+  const weakBonus = isBossTarget && weaknessTool && toolDef.id === weaknessTool ? 1 + BOSS_WEAKNESS_BONUS : 1;
 
-  let dmg = toolDef.damage * level * kindBonus * mergeBonus * bossBonus;
+  let dmg = toolDef.damage * level * kindBonus * mergeBonus * bossBonus * weakBonus;
 
   // Крит
   const critChance = save.critChance ?? 0;

@@ -4,6 +4,6 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/**/*.test.js",
-    "check": "node --check dungeon_keeper_mvp/js/*.js && node --check dungeon_keeper_mvp/js/scenes/*.js"
+    "check": "node --check dungeon_keeper_mvp/js/*.js && node --check dungeon_keeper_mvp/js/scenes/*.js && node tools/check.mjs"
   }
 }
