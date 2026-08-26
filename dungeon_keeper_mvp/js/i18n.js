@@ -24,6 +24,7 @@ const LOCALES = {
     menu_confirm_hardReset: "Удалить ВСЁ? Без возврата!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Локальный режим",
+    menu_controls: "Тап — поставить защиту. Перетащи одинаковые — мёрдж. «Старт волны» пускает героев.",
 
     // ===== НАСТРОЙКИ =====
     settings_title: "⚙️ НАСТРОЙКИ",
@@ -522,6 +523,7 @@ const LOCALES = {
     menu_confirm_hardReset: "Delete EVERYTHING? No going back!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Local mode",
+    menu_controls: "Tap to place a defense. Drag matching pieces to merge. Start Wave sends the heroes.",
 
     settings_title: "⚙️ SETTINGS",
     settings_sound: "Sound effects",
@@ -1002,6 +1004,7 @@ const LOCALES = {
     menu_confirm_hardReset: "HER ŞEYİ sil? Geri dönüş yok!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Yerel mod",
+    menu_controls: "Dokunarak savunma koy. Aynı türleri sürükleyerek birleştir. Dalga başlat kahramanları gönderir.",
 
     settings_title: "⚙️ AYARLAR",
     settings_sound: "Ses efektleri",
@@ -1469,6 +1472,22 @@ export const SUPPORTED_LANGUAGES = [
   { id: "tr", label: "Türkçe", flag: "🇹🇷" },
 ];
 
+/** Языки каталога Яндекс Игр → ближайшая встроенная локаль (п. 2.10 / 2.14). */
+const LANG_ALIASES = {
+  ru: "ru", be: "ru", kk: "ru", uk: "ru", uz: "ru", ky: "ru", tg: "ru",
+  tr: "tr",
+  en: "en",
+};
+
+/** Приводит код SDK (ru, en-US, kk, …) к ru / en / tr. */
+export function resolveLanguage(raw) {
+  if (!raw) return "ru";
+  const code = String(raw).toLowerCase().split(/[-_]/)[0];
+  if (LANG_ALIASES[code]) return LANG_ALIASES[code];
+  if (LOCALES[code]) return code;
+  return "en";
+}
+
 class I18n {
   constructor() {
     this.currentLang = "ru";
@@ -1479,7 +1498,7 @@ class I18n {
   init(lang) { this.setLanguage(lang || "ru", false); }
 
   setLanguage(lang, notify = true) {
-    if (!this.locales[lang]) lang = "ru";
+    lang = resolveLanguage(lang);
     this.currentLang = lang;
     if (notify) for (const cb of this.listeners) cb(lang);
   }

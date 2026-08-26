@@ -50,16 +50,20 @@ export class MenuScene extends Phaser.Scene {
       fontFamily: "Arial", fontSize: "28px", color: "#ffffff", align: "center", fontStyle: "bold",
     }).setOrigin(0.5);
 
-    // Подзаголовок
-    this.add.text(270, 200, t("menu_subtitle"), {
+    // Подзаголовок + краткое описание управления (п. 2.2 требований)
+    this.add.text(270, 196, t("menu_subtitle"), {
       fontFamily: "Arial", fontSize: "13px", color: "#b8c1ec", align: "center",
+      wordWrap: { width: 500 },
+    }).setOrigin(0.5);
+    this.add.text(270, 222, t("menu_controls"), {
+      fontFamily: "Arial", fontSize: "11px", color: "#7b88aa", align: "center",
       wordWrap: { width: 500 },
     }).setOrigin(0.5);
 
     // Статистика
     const d = saveManager.data;
     const chapter = getChapterForWave(d.wave);
-    this.add.text(270, 244, [
+    this.add.text(270, 256, [
       `📜 ${t(chapter.titleKey)}`,
       `${t("menu_wave")}: ${d.wave}   ${t("menu_maxWave")}: ${d.stats?.maxWave || 0}`,
       `🪙 ${d.gold}   💀 ${d.souls}   💎 ${d.darkCrystals}   🔮 ${d.essence}`,

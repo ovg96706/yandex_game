@@ -9,6 +9,8 @@ class YandexSDKWrapper {
     this.status = "idle";
     this._initPromise = null;
     this._gameplayActive = false;
+    this._eventsBound = false;
+    this._platformListeners = { pause: [], resume: [] };
   }
 
   get inited() { return this.status === "ready"; }
@@ -33,6 +35,7 @@ class YandexSDKWrapper {
         catch (e) { console.warn("Leaderboards недоступны:", e); }
 
         this.status = "ready";
+        this._bindPlatformEvents();
         console.log("Yandex SDK инициализирован");
         return true;
       } catch (e) {
@@ -68,6 +71,40 @@ class YandexSDKWrapper {
   }
 
   get gameplayActive() { return this._gameplayActive; }
+
+  /**
+   * Платформенные события паузы (реклама, сворачивание, game_api_pause).
+   * Подписчики — аудио и игровой цикл, см. main.js.
+   */
+  onPlatform(event, cb) {
+    if (!this._platformListeners) this._platformListeners = { pause: [], resume: [] };
+    if (this._platformListeners[event]) this._platformListeners[event].push(cb);
+    return () => {
+      const list = this._platformListeners?.[event];
+      if (!list) return;
+      const i = list.indexOf(cb);
+      if (i !== -1) list.splice(i, 1);
+    };
+  }
+
+  emitPlatform(event) {
+    const list = this._platformListeners?.[event];
+    if (!list) return;
+    for (const cb of list) {
+      try { cb(); } catch (e) { console.warn("platform listener error:", e); }
+    }
+  }
+
+  _bindPlatformEvents() {
+    if (this._eventsBound || !this.ysdk?.on) return;
+    this._eventsBound = true;
+    try {
+      this.ysdk.on("game_api_pause", () => this.emitPlatform("pause"));
+      this.ysdk.on("game_api_resume", () => this.emitPlatform("resume"));
+    } catch (e) {
+      console.warn("ysdk.on bind error:", e);
+    }
+  }
 
   ready() {
     try { this.ysdk?.features?.LoadingAPI?.ready(); }
