@@ -1,29 +1,108 @@
-import { SAVE_KEY, LEADERBOARD_NAME } from "./config.js";
+import { SAVE_KEY } from "./config.js";
 
 class YandexSDKWrapper {
   constructor() {
     this.ysdk = null;
     this.player = null;
     this.leaderboards = null;
-    this.inited = false;
+    // "idle" | "initializing" | "ready" | "failed" — после сбоя инициализацию можно повторить.
+    this.status = "idle";
+    this._initPromise = null;
+    this._gameplayActive = false;
+    this._eventsBound = false;
+    this._platformListeners = { pause: [], resume: [] };
   }
 
+  get inited() { return this.status === "ready"; }
+
+  /**
+   * Инициализация SDK. При ошибке состояние возвращается в "failed",
+   * поэтому следующий вызов init() пробует ещё раз (аудит №8).
+   */
   async init() {
-    if (this.inited) return;
-    this.inited = true;
+    if (this.status === "ready") return true;
+    if (this._initPromise) return this._initPromise;
+    this.status = "initializing";
+    this._initPromise = (async () => {
+      try {
+        if (!window.YaGames) { console.warn("YaGames SDK не найден"); this.status = "failed"; return false; }
+        this.ysdk = await window.YaGames.init();
+
+        try { this.player = await this.ysdk.getPlayer({ scopes: false }); }
+        catch (e) { console.warn("Игрок не авторизован"); }
+
+        try { this.leaderboards = await this.ysdk.getLeaderboards(); }
+        catch (e) { console.warn("Leaderboards недоступны:", e); }
+
+        this.status = "ready";
+        this._bindPlatformEvents();
+        console.log("Yandex SDK инициализирован");
+        return true;
+      } catch (e) {
+        console.warn("Ошибка Yandex SDK:", e);
+        this.ysdk = null; this.player = null; this.leaderboards = null;
+        this.status = "failed";
+        return false;
+      } finally {
+        this._initPromise = null;
+      }
+    })();
+    return this._initPromise;
+  }
+
+  // ============================
+  // LIFECYCLE (GameplayAPI)
+  // Платформа должна знать, когда идёт активный геймплей: во время рекламы,
+  // паузы и сворачивания вкладки его нужно останавливать (аудит №10).
+  // ============================
+
+  gameplayStart() {
+    if (this._gameplayActive) return;
+    this._gameplayActive = true;
+    try { this.ysdk?.features?.GameplayAPI?.start?.(); }
+    catch (e) { console.warn("GameplayAPI.start error:", e); }
+  }
+
+  gameplayStop() {
+    if (!this._gameplayActive) return;
+    this._gameplayActive = false;
+    try { this.ysdk?.features?.GameplayAPI?.stop?.(); }
+    catch (e) { console.warn("GameplayAPI.stop error:", e); }
+  }
+
+  get gameplayActive() { return this._gameplayActive; }
+
+  /**
+   * Платформенные события паузы (реклама, сворачивание, game_api_pause).
+   * Подписчики — аудио и игровой цикл, см. main.js.
+   */
+  onPlatform(event, cb) {
+    if (!this._platformListeners) this._platformListeners = { pause: [], resume: [] };
+    if (this._platformListeners[event]) this._platformListeners[event].push(cb);
+    return () => {
+      const list = this._platformListeners?.[event];
+      if (!list) return;
+      const i = list.indexOf(cb);
+      if (i !== -1) list.splice(i, 1);
+    };
+  }
+
+  emitPlatform(event) {
+    const list = this._platformListeners?.[event];
+    if (!list) return;
+    for (const cb of list) {
+      try { cb(); } catch (e) { console.warn("platform listener error:", e); }
+    }
+  }
+
+  _bindPlatformEvents() {
+    if (this._eventsBound || !this.ysdk?.on) return;
+    this._eventsBound = true;
     try {
-      if (!window.YaGames) { console.warn("YaGames SDK не найден"); return; }
-      this.ysdk = await window.YaGames.init();
-
-      try { this.player = await this.ysdk.getPlayer({ scopes: false }); }
-      catch (e) { console.warn("Игрок не авторизован"); }
-
-      try { this.leaderboards = await this.ysdk.getLeaderboards(); }
-      catch (e) { console.warn("Leaderboards недоступны:", e); }
-
-      console.log("Yandex SDK инициализирован");
+      this.ysdk.on("game_api_pause", () => this.emitPlatform("pause"));
+      this.ysdk.on("game_api_resume", () => this.emitPlatform("resume"));
     } catch (e) {
-      console.warn("Ошибка Yandex SDK:", e);
+      console.warn("ysdk.on bind error:", e);
     }
   }
 
@@ -93,67 +172,16 @@ class YandexSDKWrapper {
    * Отправить свой результат.
    */
   async submitScore(name, score) {
-    // Scores are generated entirely on the client. Do not publish an unverified score.
-    return this._submitLocal(name, score);
-    if (this.leaderboards) {
-      try {
-        await this.leaderboards.setLeaderboardScore(name, score);
-        return { ok: true };
-      } catch (e) {
-        console.warn("Leaderboard submit error:", e);
-      }
-    }
-    // Локальный fallback
+    // Результат целиком считается на клиенте, поэтому в глобальную таблицу он не отправляется:
+    // без серверной верификации любой игрок может выставить себе любое значение (аудит №3, №6).
     return this._submitLocal(name, score);
   }
 
   /**
-   * Получить топ и своё место.
+   * Получить топ и своё место (локальная таблица).
    * Возвращает: { entries: [...], player: {rank, score, name, avatar} | null }
    */
   async getLeaderboard(name, topSize = 10) {
-    // Local-only until a server-side verification path exists.
-    return this._getLocal(name, topSize);
-    if (this.leaderboards) {
-      try {
-        const result = await this.leaderboards.getLeaderboardEntries(name, {
-          quantityTop: topSize,
-          includeUser: true,
-          quantityAround: 0,
-        });
-
-        const entries = (result.entries || []).map(e => ({
-          rank: e.rank,
-          score: e.score,
-          name: e.player?.publicName || "Игрок",
-          avatar: e.player?.getAvatarSrc?.("small") || null,
-          uniqueID: e.player?.uniqueID,
-        }));
-
-        let playerRow = null;
-        if (result.userRank && result.userRank > 0) {
-          // Ищем игрока в общем списке
-          const me = entries.find(e => e.rank === result.userRank);
-          if (me) playerRow = me;
-          else {
-            // Игрок не в топе — можно запросить отдельно
-            try {
-              const my = await this.leaderboards.getLeaderboardPlayerEntry(name);
-              playerRow = {
-                rank: my.rank,
-                score: my.score,
-                name: my.player?.publicName || "Ты",
-                avatar: my.player?.getAvatarSrc?.("small") || null,
-              };
-            } catch (e) {}
-          }
-        }
-
-        return { entries, player: playerRow, source: "yandex" };
-      } catch (e) {
-        console.warn("Leaderboard get error:", e);
-      }
-    }
     return this._getLocal(name, topSize);
   }
 

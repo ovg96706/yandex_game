@@ -24,6 +24,7 @@ const LOCALES = {
     menu_confirm_hardReset: "Удалить ВСЁ? Без возврата!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Локальный режим",
+    menu_controls: "Тап — поставить защиту. Перетащи одинаковые — мёрдж. «Старт волны» пускает героев.",
 
     // ===== НАСТРОЙКИ =====
     settings_title: "⚙️ НАСТРОЙКИ",
@@ -65,6 +66,8 @@ const LOCALES = {
     game_teleport: "ТЕЛЕПОРТ!",
     game_counter: "Контратака!",
     game_reinforcement: "Подкрепление!",
+    game_frozen: "ЗАМОРОЖЕН!",
+    game_revived: "ВОСКРЕШЕНИЕ!",
     game_shield_block: "🛡️ Блок!",
     game_boss_defeated: "{0} повержен!",
     game_unit_slain: "{0} погиб!",
@@ -219,9 +222,9 @@ const LOCALES = {
     unit_spikes: "Шипы",
     unit_spikes_desc: "Урон при наступании.",
     unit_fire_tile: "Огонь",
-    unit_fire_tile_desc: "Высокий урон, поджигает.",
+    unit_fire_tile_desc: "Высокий урон и поджог: цель горит 4 сек.",
     unit_ice_wall: "Лёд",
-    unit_ice_wall_desc: "Замедляет на 60%.",
+    unit_ice_wall_desc: "Стена льда: останавливает героя и замедляет на 3 сек.",
     unit_poison: "Яд",
     unit_poison_desc: "Ядовит. Урон 5 сек.",
     unit_lightning: "Молния",
@@ -243,7 +246,7 @@ const LOCALES = {
     unit_dark_knight: "Тёмн. рыцарь",
     unit_dark_knight_desc: "Танк + контратака.",
     unit_necromancer: "Некромант",
-    unit_necromancer_desc: "Усиливает соседей.",
+    unit_necromancer_desc: "Усиливает соседей и воскрешает павших монстров.",
     unit_dragon: "Дракон",
     unit_dragon_desc: "Огненное дыхание. Занимает 2×2 клетки.",
 
@@ -251,6 +254,7 @@ const LOCALES = {
     hero_peasant: "Крестьянин",
     hero_warrior: "Воин",
     hero_mage: "Маг",
+    hero_archer: "Лучник",
     hero_thief: "Вор",
     hero_knight: "Рыцарь",
     hero_healer: "Целитель",
@@ -417,6 +421,7 @@ const LOCALES = {
     hero_peasant_desc: "Слабый, но их много.",
     hero_warrior_desc: "Крепкий боец ближнего боя.",
     hero_mage_desc: "Периодически рассеивает ближайшую ловушку.",
+    hero_archer_desc: "Бьёт монстров с дистанции, не подходя вплотную.",
     hero_thief_desc: "Очень быстр; при прорыве крадёт 10% золота.",
     hero_knight_desc: "Медленный, но очень живучий.",
     hero_healer_desc: "Лечит раненых союзников.",
@@ -518,6 +523,7 @@ const LOCALES = {
     menu_confirm_hardReset: "Delete EVERYTHING? No going back!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Local mode",
+    menu_controls: "Tap to place a defense. Drag matching pieces to merge. Start Wave sends the heroes.",
 
     settings_title: "⚙️ SETTINGS",
     settings_sound: "Sound effects",
@@ -557,6 +563,8 @@ const LOCALES = {
     game_teleport: "TELEPORT!",
     game_counter: "Counterattack!",
     game_reinforcement: "Reinforcements!",
+    game_frozen: "FROZEN!",
+    game_revived: "RAISED!",
     game_shield_block: "🛡️ Blocked!",
     game_boss_defeated: "{0} defeated!",
     game_unit_slain: "{0} slain!",
@@ -704,9 +712,9 @@ const LOCALES = {
     unit_spikes: "Spikes",
     unit_spikes_desc: "Damage when stepped on.",
     unit_fire_tile: "Fire",
-    unit_fire_tile_desc: "High damage, burns enemies.",
+    unit_fire_tile_desc: "High damage and burning: the target burns for 4s.",
     unit_ice_wall: "Ice",
-    unit_ice_wall_desc: "Slows by 60%.",
+    unit_ice_wall_desc: "Ice wall: halts the hero and slows for 3s.",
     unit_poison: "Poison",
     unit_poison_desc: "Poisons. Damage for 5s.",
     unit_lightning: "Lightning",
@@ -727,13 +735,14 @@ const LOCALES = {
     unit_dark_knight: "Dark Knight",
     unit_dark_knight_desc: "Tank + counter.",
     unit_necromancer: "Necromancer",
-    unit_necromancer_desc: "Buffs allies.",
+    unit_necromancer_desc: "Buffs neighbours and raises fallen monsters.",
     unit_dragon: "Dragon",
     unit_dragon_desc: "Fire breath. Occupies 2×2 cells.",
 
     hero_peasant: "Peasant",
     hero_warrior: "Warrior",
     hero_mage: "Mage",
+    hero_archer: "Archer",
     hero_thief: "Thief",
     hero_knight: "Knight",
     hero_healer: "Healer",
@@ -893,6 +902,7 @@ const LOCALES = {
     hero_peasant_desc: "Weak, but numerous.",
     hero_warrior_desc: "Sturdy melee fighter.",
     hero_mage_desc: "Periodically dispels a nearby trap.",
+    hero_archer_desc: "Shoots monsters from range without closing in.",
     hero_thief_desc: "Very fast; steals 10% gold on breaking through.",
     hero_knight_desc: "Slow but very tough.",
     hero_healer_desc: "Heals wounded allies.",
@@ -994,6 +1004,7 @@ const LOCALES = {
     menu_confirm_hardReset: "HER ŞEYİ sil? Geri dönüş yok!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Yerel mod",
+    menu_controls: "Dokunarak savunma koy. Aynı türleri sürükleyerek birleştir. Dalga başlat kahramanları gönderir.",
 
     settings_title: "⚙️ AYARLAR",
     settings_sound: "Ses efektleri",
@@ -1033,6 +1044,8 @@ const LOCALES = {
     game_teleport: "IŞINLANMA!",
     game_counter: "Karşı saldırı!",
     game_reinforcement: "Takviye!",
+    game_frozen: "DONDU!",
+    game_revived: "DİRİLDİ!",
     game_shield_block: "🛡️ Engellendi!",
     game_boss_defeated: "{0} yenildi!",
     game_unit_slain: "{0} öldürüldü!",
@@ -1179,9 +1192,9 @@ const LOCALES = {
     unit_spikes: "Dikenler",
     unit_spikes_desc: "Basınca hasar.",
     unit_fire_tile: "Ateş",
-    unit_fire_tile_desc: "Yüksek hasar, yakar.",
+    unit_fire_tile_desc: "Yüksek hasar ve yanma: hedef 4 sn yanar.",
     unit_ice_wall: "Buz",
-    unit_ice_wall_desc: "%60 yavaşlatır.",
+    unit_ice_wall_desc: "Buz duvarı: kahramanı durdurur ve 3 sn yavaşlatır.",
     unit_poison: "Zehir",
     unit_poison_desc: "Zehirler. 5 sn hasar.",
     unit_lightning: "Yıldırım",
@@ -1202,13 +1215,14 @@ const LOCALES = {
     unit_dark_knight: "Kara Şövalye",
     unit_dark_knight_desc: "Tank + karşı saldırı.",
     unit_necromancer: "Nekromant",
-    unit_necromancer_desc: "Müttefikleri güçlendirir.",
+    unit_necromancer_desc: "Komşuları güçlendirir ve ölen canavarları diriltir.",
     unit_dragon: "Ejderha",
     unit_dragon_desc: "Ateş nefesi. 2×2 kare kaplar.",
 
     hero_peasant: "Köylü",
     hero_warrior: "Savaşçı",
     hero_mage: "Büyücü",
+    hero_archer: "Okçu",
     hero_thief: "Hırsız",
     hero_knight: "Şövalye",
     hero_healer: "Şifacı",
@@ -1368,6 +1382,7 @@ const LOCALES = {
     hero_peasant_desc: "Zayıf ama kalabalık.",
     hero_warrior_desc: "Sağlam yakın dövüşçü.",
     hero_mage_desc: "Periyodik olarak yakındaki bir tuzağı dağıtır.",
+    hero_archer_desc: "Canavarlara yaklaşmadan uzaktan ateş eder.",
     hero_thief_desc: "Çok hızlı; geçerken altının %10'unu çalar.",
     hero_knight_desc: "Yavaş ama çok dayanıklı.",
     hero_healer_desc: "Yaralı müttefikleri iyileştirir.",
@@ -1457,6 +1472,22 @@ export const SUPPORTED_LANGUAGES = [
   { id: "tr", label: "Türkçe", flag: "🇹🇷" },
 ];
 
+/** Языки каталога Яндекс Игр → ближайшая встроенная локаль (п. 2.10 / 2.14). */
+const LANG_ALIASES = {
+  ru: "ru", be: "ru", kk: "ru", uk: "ru", uz: "ru", ky: "ru", tg: "ru",
+  tr: "tr",
+  en: "en",
+};
+
+/** Приводит код SDK (ru, en-US, kk, …) к ru / en / tr. */
+export function resolveLanguage(raw) {
+  if (!raw) return "ru";
+  const code = String(raw).toLowerCase().split(/[-_]/)[0];
+  if (LANG_ALIASES[code]) return LANG_ALIASES[code];
+  if (LOCALES[code]) return code;
+  return "en";
+}
+
 class I18n {
   constructor() {
     this.currentLang = "ru";
@@ -1467,7 +1498,7 @@ class I18n {
   init(lang) { this.setLanguage(lang || "ru", false); }
 
   setLanguage(lang, notify = true) {
-    if (!this.locales[lang]) lang = "ru";
+    lang = resolveLanguage(lang);
     this.currentLang = lang;
     if (notify) for (const cb of this.listeners) cb(lang);
   }

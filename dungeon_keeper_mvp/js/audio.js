@@ -25,6 +25,8 @@ class AudioManager {
     this._musicPlaying = false;
     this._musicNodes = [];
     this._musicTimer = null;
+    this._focusSuspended = false;
+    this._resumeMusic = false;
   }
 
   init() {
@@ -70,6 +72,27 @@ class AudioManager {
     if (typeof settings.sfxVolume === "number") this.sfxVolume = settings.sfxVolume;
     if (typeof settings.musicVolume === "number") this.musicVolume = settings.musicVolume;
     this._applyGains();
+  }
+
+  /**
+   * П. 1.3 требований Яндекс Игр: при потере фокуса звук должен остановиться.
+   * suspendAll глушит AudioContext и рвёт процедурный цикл музыки.
+   */
+  suspendAll() {
+    if (this._focusSuspended) return;
+    this._focusSuspended = true;
+    this._resumeMusic = this._musicPlaying;
+    this.stopMusic();
+    if (this.ctx?.state === "running") this.ctx.suspend().catch(() => {});
+  }
+
+  resumeAll() {
+    if (!this._focusSuspended) return;
+    this._focusSuspended = false;
+    const shouldMusic = this._resumeMusic;
+    this._resumeMusic = false;
+    this.resume();
+    if (shouldMusic && this.musicEnabled) this.startMusic();
   }
 
   _canPlay(key) {

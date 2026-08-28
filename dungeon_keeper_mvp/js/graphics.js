@@ -297,6 +297,19 @@ function paintKnight(g) {
   g.fillStyle(0xcc0000, 0.9); g.fillEllipse(-10, 4, 10, 14);
   g.fillStyle(0xdddddd, 1); g.fillRect(10, -10, 2, 20);
 }
+function paintArcher(g) {
+  g.fillStyle(0x2f6d3a, 1); g.fillTriangle(-8, 14, 0, -3, 8, 14);
+  g.fillStyle(0xffd5b4, 1); g.fillCircle(0, -7, 5);
+  g.fillStyle(0x3f7a4a, 1); g.fillEllipse(0, -11, 12, 6);
+  g.fillStyle(0x7a5230, 1); g.fillRect(-1, -14, 2, 5);
+  // лук и стрела
+  g.lineStyle(2, 0x8b5a2b, 1);
+  g.beginPath(); g.arc(9, 2, 9, -Math.PI / 2, Math.PI / 2, false); g.strokePath();
+  g.lineStyle(1, 0xdddddd, 1);
+  g.beginPath(); g.moveTo(9, -7); g.lineTo(9, 11); g.strokePath();
+  g.fillStyle(0xeeeeee, 1); g.fillRect(2, 1, 14, 1.5);
+  g.fillTriangle(16, -2, 21, 2, 16, 5);
+}
 function paintThief(g) {
   g.fillStyle(0x333344, 1); g.fillTriangle(-7, 14, 0, -2, 7, 14);
   g.fillStyle(0xffd5b4, 1); g.fillCircle(0, -6, 5);
@@ -369,7 +382,7 @@ const MONSTER_PAINTERS = {
 
 const HERO_PAINTERS = {
   peasant: paintPeasant, warrior: paintWarrior, mage: paintMage,
-  knight: paintKnight, thief: paintThief, healer: paintHealer,
+  archer: paintArcher, knight: paintKnight, thief: paintThief, healer: paintHealer,
   paladin: paintBossPaladin, archmage: paintBossArchmage, king: paintBossKing,
 };
 
