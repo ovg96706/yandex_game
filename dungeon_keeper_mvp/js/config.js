@@ -340,7 +340,7 @@ export const WHEEL_SECTORS = [
   { id: "heal", label: "+5 HP", color: 0x00fff5, crystalHP: 5, weight: 10 },
   { id: "gold_l", label: "400🪙", color: 0xff5500, gold: 400, weight: 8 },
   { id: "souls_l", label: "80💀", color: 0x00ffaa, souls: 80, weight: 6 },
-  { id: "jackpot", label: "🎁 ДЖЕКПОТ", color: 0xff00ff, gold: 1000, souls: 200, crystalHP: 10, darkCrystals: 1, weight: 2 },
+  { id: "jackpot", label: "🎁 JACKPOT", labelKey: "wheel_sector_jackpot", color: 0xff00ff, gold: 1000, souls: 200, crystalHP: 10, darkCrystals: 1, weight: 2 },
 ];
 export const WHEEL_FREE_INTERVAL_MS = 4 * 60 * 60 * 1000;
 

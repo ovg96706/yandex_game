@@ -5,6 +5,8 @@ class YandexSDKWrapper {
     this.ysdk = null;
     this.player = null;
     this.leaderboards = null;
+    // Код языка платформы (ISO 639-1), прочитанный из environment.i18n.lang сразу после init (п. 2.14).
+    this.lang = null;
     // "idle" | "initializing" | "ready" | "failed" — после сбоя инициализацию можно повторить.
     this.status = "idle";
     this._initPromise = null;
@@ -28,6 +30,11 @@ class YandexSDKWrapper {
         if (!window.YaGames) { console.warn("YaGames SDK не найден"); this.status = "failed"; return false; }
         this.ysdk = await window.YaGames.init();
 
+        // п. 2.14: язык читаем СРАЗУ после YaGames.init() — до getPlayer/getLeaderboards/облака,
+        // которые могут занимать секунды. Обращение к environment.i18n.lang и есть то, что
+        // debug-панель засчитывает как «I18N is used», поэтому оно должно быть безусловным.
+        this.lang = this._readPlatformLanguage();
+
         try { this.player = await this.ysdk.getPlayer({ scopes: false }); }
         catch (e) { console.warn("Игрок не авторизован"); }
 
@@ -40,7 +47,7 @@ class YandexSDKWrapper {
         return true;
       } catch (e) {
         console.warn("Ошибка Yandex SDK:", e);
-        this.ysdk = null; this.player = null; this.leaderboards = null;
+        this.ysdk = null; this.player = null; this.leaderboards = null; this.lang = null;
         this.status = "failed";
         return false;
       } finally {
@@ -161,7 +168,33 @@ class YandexSDKWrapper {
     });
   }
 
-  getLanguage() { return this.ysdk?.environment?.i18n?.lang || "ru"; }
+  _readPlatformLanguage() {
+    try {
+      const lang = this.ysdk?.environment?.i18n?.lang;
+      return typeof lang === "string" && lang ? lang : null;
+    } catch (e) {
+      console.warn("environment.i18n.lang недоступен:", e);
+      return null;
+    }
+  }
+
+  /**
+   * Язык пользователя (п. 2.14). Приоритет:
+   *   1) environment.i18n.lang платформы (прочитан при init);
+   *   2) язык браузера — только вне Яндекс Игр (локальный запуск / SDK не поднялся);
+   *   3) "ru".
+   * Приведение к встроенным локалям (ru/en/tr + резервный набор) делает i18n.resolveLanguage().
+   */
+  getLanguage() {
+    if (this.lang) return this.lang;
+    const live = this._readPlatformLanguage();
+    if (live) { this.lang = live; return live; }
+    if (typeof navigator !== "undefined" && typeof navigator.language === "string" && navigator.language) {
+      return navigator.language;
+    }
+    return "ru";
+  }
+
   isYandex() { return !!this.ysdk; }
 
   // ============================
@@ -199,21 +232,35 @@ class YandexSDKWrapper {
       myId = "guest_" + Math.random().toString(36).slice(2, 10);
       localStorage.setItem("dk_guest_id", myId);
     }
-    let myName = localStorage.getItem("dk_guest_name");
-    if (!myName) {
-      myName = "Хранитель " + Math.floor(Math.random() * 9999);
-      localStorage.setItem("dk_guest_name", myName);
-    }
+    const guestNo = this._guestNumber();
 
     const existing = list.findIndex(e => e.uniqueID === myId);
     if (existing >= 0) {
       if (score > list[existing].score) list[existing].score = score;
+      list[existing].guestNo = guestNo;
+      delete list[existing].name; // старые записи хранили готовую строку на русском
     } else {
-      list.push({ uniqueID: myId, name: myName, score });
+      list.push({ uniqueID: myId, guestNo, score });
     }
 
     localStorage.setItem(key, JSON.stringify(list));
     return { ok: true, local: true };
+  }
+
+  /**
+   * Номер гостя для локальной таблицы. Храним только число — сама подпись
+   * («Хранитель 1234» / «Keeper 1234» / «Bekçi 1234») собирается через i18n при отрисовке,
+   * иначе в EN/TR-интерфейсе всплывал бы русский текст (п. 2.14 / 8.2.3).
+   */
+  _guestNumber() {
+    let no = parseInt(localStorage.getItem("dk_guest_no") || "", 10);
+    if (!Number.isFinite(no)) {
+      // Миграция: у старых игроков номер зашит в строку dk_guest_name.
+      const legacy = /(\d+)\s*$/.exec(localStorage.getItem("dk_guest_name") || "");
+      no = legacy ? parseInt(legacy[1], 10) : Math.floor(Math.random() * 9999);
+      localStorage.setItem("dk_guest_no", String(no));
+    }
+    return no;
   }
 
   _getLocal(name, topSize) {
@@ -224,10 +271,18 @@ class YandexSDKWrapper {
     list.sort((a, b) => b.score - a.score);
 
     const myId = localStorage.getItem("dk_guest_id");
+    // name отдаём только для записей платформы; локальный гость — guestNo,
+    // подпись локализует сцена (t("lb_guest_name", guestNo)).
+    const guestNoOf = (e) => {
+      if (Number.isFinite(e.guestNo)) return e.guestNo;
+      const legacy = /(\d+)\s*$/.exec(e.name || ""); // старый формат: «Хранитель 1234»
+      return legacy ? parseInt(legacy[1], 10) : null;
+    };
     const entries = list.slice(0, topSize).map((e, i) => ({
       rank: i + 1,
       score: e.score,
-      name: e.name,
+      name: null,
+      guestNo: guestNoOf(e),
       avatar: null,
       uniqueID: e.uniqueID,
     }));
@@ -238,7 +293,8 @@ class YandexSDKWrapper {
       player = {
         rank: myIndex + 1,
         score: list[myIndex].score,
-        name: list[myIndex].name,
+        name: null,
+        guestNo: guestNoOf(list[myIndex]),
         avatar: null,
       };
     }
