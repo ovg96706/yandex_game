@@ -36,6 +36,7 @@ function makeScene() {
   const scene = Object.create(GameScene.prototype);
   scene.gridItems = new Map();
   scene.heroes = [];
+  scene.popupObjects = [];
   scene.textPool = null;
   scene.add = {
     container: () => mkObj(), text: () => mkObj(), rectangle: () => mkObj(),
@@ -149,6 +150,42 @@ test("traps: spikes are step-only — tick damage on their own cell, silence at 
 
   scene.processTraps(2000, 1000); // кулдаун кончился — новый тик урона
   assert.ok(onCell.hp < hpAfterTick, "урон периодический, пока герой стоит на клетке");
+});
+
+test("board: placed units drag with any selected tool; empty cell still places", () => {
+  const scene = makeScene();
+  scene.spawnBoardPiece({ row: 0, col: 0, type: "spikes", level: 1 }, false);
+  scene.spawnBoardPiece({ row: 2, col: 2, type: "slime", level: 1 }, false);
+  const trap = scene.cellEntry(0, 0).trap;
+  const monster = scene.cellEntry(2, 2).monster;
+  const at = (row, col) => ({ x: 110 + col * 64 + 32, y: 155 + row * 64 + 32 });
+
+  // Выбран монстр — а перетаскивается ловушка
+  scene.selectedTool = "slime";
+  scene.onPointerDown(at(0, 0));
+  assert.strictEqual(scene.dragItem, trap);
+  scene.onPointerUp({ x: -100, y: -100 }); // бросок вне сетки — ход отменён
+  assert.equal(scene.dragItem, null);
+  assert.deepEqual([trap.row, trap.col], [0, 0]);
+
+  // Выбрана ловушка — а перетаскивается монстр, и ход применяется
+  scene.selectedTool = "spikes";
+  scene.onPointerDown(at(2, 2));
+  assert.strictEqual(scene.dragItem, monster);
+  scene.onPointerUp(at(5, 0));
+  assert.deepEqual([monster.row, monster.col], [5, 0]);
+  assert.equal(scene.cellEntry(2, 2), null);
+
+  // Пустая клетка при выбранном инструменте — постановка, а не перетаскивание
+  scene.onPointerDown(at(1, 1));
+  assert.equal(scene.dragItem, null);
+  assert.ok(scene.cellEntry(1, 1).trap);
+
+  // Ластик по-прежнему стирает, а не тащит
+  scene.selectedTool = "erase";
+  scene.onPointerDown(at(1, 1));
+  assert.equal(scene.dragItem, null);
+  assert.equal(scene.cellEntry(1, 1), null);
 });
 
 test("combat: paladin shield blocks only trap effects, never monster attacks", () => {

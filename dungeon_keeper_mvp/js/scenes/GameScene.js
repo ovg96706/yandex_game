@@ -408,12 +408,12 @@ export class GameScene extends Phaser.Scene {
       if (topPiece && !this.waveInProgress) this.erasePiece(topPiece, pointer);
       return;
     }
+    if (this.waveInProgress) return;
+    // Уже выставленный юнит перетаскивается (ход/мёрдж) при ЛЮБОМ выбранном в панели
+    // инструменте: выбор инструмента влияет только на постановку в пустую клетку.
+    if (topPiece) { this.startDrag(topPiece); return; }
     const selDef = TOOL_DEFS[this.selectedTool];
-    if (!selDef || this.waveInProgress) return;
-    // Фигуру того же типа, что и выбранный инструмент, перетаскиваем (ход/мёрдж);
-    // инструмент другого типа в занятую клетку не встанет: isFootprintFree
-    // считает клетку занятой любым юнитом и placeNewPiece покажет «клетка занята».
-    if (topPiece && topPiece.kind === selDef.kind) { this.startDrag(topPiece); return; }
+    if (!selDef) return;
     this.placeNewPiece(row, col, pointer);
   }
 

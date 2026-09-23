@@ -29,7 +29,7 @@ const LOCALES = {
     menu_confirm_hardReset: "Удалить ВСЁ? Без возврата!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Локальный режим",
-    menu_controls: "Тап — поставить защиту. Перетащи одинаковые — мёрдж. «Старт волны» пускает героев.",
+    menu_controls: "Тап по свободной клетке — поставить защиту. Любой свой юнит можно перетащить, одинаковые — мёрдж. «Старт волны» пускает героев.",
 
     // ===== НАСТРОЙКИ =====
     settings_title: "⚙️ НАСТРОЙКИ",
@@ -49,7 +49,7 @@ const LOCALES = {
     game_wave: "Волна: {0}",
     game_hp: "HP: {0}/{1}",
     game_place_defense: "Расставь защиту и запусти волну",
-    game_merge_hint: "Перетащи одинаковый объект на другой для мёрджа",
+    game_merge_hint: "Тяни юнит по доске, чтобы переместить; одинаковый на одинаковый — мёрдж",
     game_start_wave: "⚔️ СТАРТ ВОЛНЫ",
     game_wave_running: "⚔️ ВОЛНА ИДЁТ...",
     game_wave_ongoing: "Волна {0}",
@@ -536,7 +536,7 @@ const LOCALES = {
     menu_confirm_hardReset: "Delete EVERYTHING? No going back!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Local mode",
-    menu_controls: "Tap to place a defense. Drag matching pieces to merge. Start Wave sends the heroes.",
+    menu_controls: "Tap an empty cell to place a defense. Any of your units can be dragged; matching ones merge. Start Wave sends the heroes.",
 
     settings_title: "⚙️ SETTINGS",
     settings_sound: "Sound effects",
@@ -554,7 +554,7 @@ const LOCALES = {
     game_wave: "Wave: {0}",
     game_hp: "HP: {0}/{1}",
     game_place_defense: "Place defenses and start the wave",
-    game_merge_hint: "Drag one object onto another of the same type to merge",
+    game_merge_hint: "Drag a unit to move it; same onto same merges",
     game_start_wave: "⚔️ START WAVE",
     game_wave_running: "⚔️ WAVE ONGOING...",
     game_wave_ongoing: "Wave {0}",
@@ -1025,7 +1025,7 @@ const LOCALES = {
     menu_confirm_hardReset: "HER ŞEYİ sil? Geri dönüş yok!",
     menu_sdk_yandex: "Yandex SDK",
     menu_sdk_local: "Yerel mod",
-    menu_controls: "Dokunarak savunma koy. Aynı türleri sürükleyerek birleştir. Dalga başlat kahramanları gönderir.",
+    menu_controls: "Boş kareye dokunarak savunma koy. Kendi birimlerin sürüklenebilir, aynı türler birleşir. Dalga başlat kahramanları gönderir.",
 
     settings_title: "⚙️ AYARLAR",
     settings_sound: "Ses efektleri",
@@ -1043,7 +1043,7 @@ const LOCALES = {
     game_wave: "Dalga: {0}",
     game_hp: "CAN: {0}/{1}",
     game_place_defense: "Savunmayı yerleştir ve dalgayı başlat",
-    game_merge_hint: "Aynı türden bir nesneyi diğerinin üstüne sürükle",
+    game_merge_hint: "Bir birimi sürükleyerek taşı; aynı türler birleşir",
     game_start_wave: "⚔️ DALGAYI BAŞLAT",
     game_wave_running: "⚔️ DALGA DEVAM EDİYOR...",
     game_wave_ongoing: "Dalga {0}",
