@@ -119,9 +119,11 @@ test("combat: merge upgrades level and monster HP scale up; kills remove the pie
   const merged = scene.cellEntry(0, 0).monster;
   assert.equal(scene.iterPieces().filter((p) => p.type === "slime").length, 1);
   assert.equal(merged.level, 2);
-  assert.equal(merged.hp, 180);
+  assert.equal(merged.hp, 320);
   scene.damageMonster(merged, 100);
-  assert.equal(merged.hp, 80);
+  assert.equal(merged.hp, 220);
+  scene.damageMonster(merged, 200);
+  assert.equal(merged.hp, 20); // слайм по спеке живучий — добиваем ещё раз
   scene.damageMonster(merged, 200);
   assert.equal(scene.cellEntry(0, 0), null); // последняя фигура клетки снята — запись удалена
   scene.damageMonster(merged, 999); // повторное добивание не падает

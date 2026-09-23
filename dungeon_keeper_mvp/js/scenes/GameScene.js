@@ -706,7 +706,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = this.heroes.length - 1; i >= 0; i--) {
       const hero = this.heroes[i];
       if (hero.dead) continue;
-      // Ледяная стена реально держит героя на месте (не просто замедляет).
+      // Герой, задержанный эффектом полной остановки (blockedUntil), стоит на месте.
       if (!hero.engaged && hero.blockedUntil <= time) {
         const sm = hero.slowUntil > time ? hero.speedMultiplier : 1;
         hero.container.y += hero.speed * sm * dt;
@@ -823,19 +823,33 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (def.id === "poison") {
-        const target = this._findHeroForTrap(piece, true);
-        if (!target) continue;
-        const isBoss = target.isBoss || false;
-        const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
-        // Яд накладывается, только если удар ловушки не заблокирован щитом.
-        if (this.damageHero(target, dmg, isCrit) && !target.dead) {
-          target.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
-          target.poisonEndTime = time + (def.poisonDuration || 5000);
-          target.poisonTimer = 0;
-          spawnPoisonCloud(this, pPos.x, pPos.y);
+        // Ядовитое облако: AoE-урон по области 3×3 клетки вокруг ловушки —
+        // каждый тик кулдауна задевает ВСЕХ героев в области и отравляет их.
+        const cells = def.aoeCells ?? 1;
+        const g = GAME_CONFIG.grid;
+        const x1 = g.offsetX + (piece.col - cells) * g.cell, y1 = g.offsetY + (piece.row - cells) * g.cell;
+        const x2 = g.offsetX + (piece.col + cells + 1) * g.cell, y2 = g.offsetY + (piece.row + cells + 1) * g.cell;
+        let hitAny = false;
+        for (const h of this.heroes) {
+          if (h.dead || h.disableTraps) continue;
+          if (h.container.x < x1 || h.container.x > x2 || h.container.y < y1 || h.container.y > y2) continue;
+          const isBoss = h.isBoss || false;
+          const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, h.weaknessTool);
+          // Яд накладывается, только если удар ловушки не заблокирован щитом.
+          if (this.damageHero(h, dmg, isCrit) && !h.dead) {
+            h.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
+            h.poisonEndTime = time + (def.poisonDuration || 5000);
+            h.poisonTimer = 0;
+          }
+          hitAny = true;
         }
-        audio.trapHit();
-        piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
+        if (hitAny) {
+          spawnPoisonCloud(this, pPos.x, pPos.y);
+          audio.trapHit();
+          piece.cooldown = getTrapCooldown(def, saveManager.data);
+          this.pulsePiece(piece);
+        }
+        continue;
       }
 
       const target = this._findHeroForTrap(piece, true);
@@ -847,8 +861,9 @@ export class GameScene extends Phaser.Scene {
         target.speedMultiplier = def.slowFactor;
         target.slowUntil = time + (def.slowDuration || 2000) * (saveManager.data.slowBonus ?? 1);
       }
-      // Ледяная стена: помимо замедления полностью останавливает героя на короткое время.
       if (applied && !target.dead) {
+        // Полная остановка — для инструментов с blockDuration (ледяная стена по спеке
+        // только замедляет на 3 секунды, поэтому blockDuration у неё убран).
         const blockMs = getBlockDuration(def, piece.level);
         if (blockMs) {
           target.blockedUntil = Math.max(target.blockedUntil || 0, time + blockMs);

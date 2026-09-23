@@ -8,8 +8,8 @@ import {
 import { validateSave, SAVE_VERSION } from "../dungeon_keeper_mvp/js/saveManager.js";
 
 test("monsters have HP that scales with merge level", () => {
-  assert.equal(getMonsterMaxHP(TOOL_DEFS.slime, 1), 90);
-  assert.equal(getMonsterMaxHP(TOOL_DEFS.slime, 3), 270);
+  assert.equal(getMonsterMaxHP(TOOL_DEFS.slime, 1), 160);
+  assert.equal(getMonsterMaxHP(TOOL_DEFS.slime, 3), 480);
   assert.equal(getMonsterMaxHP(TOOL_DEFS.dragon, 5), 1600);
   // запасное значение, если поле monsterHP не задано
   assert.equal(getMonsterMaxHP({ kind: "monster" }, 2), 160);
