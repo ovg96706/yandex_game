@@ -85,3 +85,12 @@ test("monster roles match the spec table", () => {
   assert.equal(dragon.monsterHP, Math.max(...monsters.map((m) => m.monsterHP)));
   assert.equal(dragon.size, 2);
 });
+
+test("traps never shoot at range: each has a design-doc trigger", async () => {
+  const { getToolRange, getTrapTrigger } = await import("../dungeon_keeper_mvp/js/config.js");
+  const expected = { spikes: "step", fire_tile: "step", ice_wall: "step", poison: "area", lightning: "chain", teleport: "teleport", blackhole: "pull" };
+  for (const [id, trig] of Object.entries(expected)) {
+    assert.equal(getTrapTrigger(TOOL_DEFS[id]), trig, id);
+    assert.equal(getToolRange(TOOL_DEFS[id], { trapRangeBonus: 3 }), 0, `${id} has no shooting range`);
+  }
+});
