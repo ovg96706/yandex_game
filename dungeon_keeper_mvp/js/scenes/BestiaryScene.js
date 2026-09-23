@@ -43,8 +43,12 @@ export class BestiaryScene extends Phaser.Scene {
     this.heroesTab = createButton(this, 375, 104, 150, 36, t("bestiary_heroes"), () => { this.tab = "heroes"; this.page = 0; this.redraw(); }, { textSize: "14px" });
 
     this.cardLayer = this.add.container(0, 0);
-    this.arrowL = createButton(this, 30, 500, 40, 60, "◀", () => this._page(-1), { textSize: "16px", color: 0x333355, hoverColor: 0x555588, stroke: 0x7799cc });
-    this.arrowR = createButton(this, 510, 500, 40, 60, "▶", () => this._page(1), { textSize: "16px", color: 0x333355, hoverColor: 0x555588, stroke: 0x7799cc });
+    // Листалка живёт ПОД сеткой карточек (сетка кончается на y≈605): раньше стрелки
+    // висели по бокам на y=500 и наезжали на крайние карточки среднего ряда.
+    this.pagerY = 655;
+    this.arrowL = createButton(this, 190, this.pagerY, 56, 40, "◀", () => this._page(-1), { textSize: "16px", color: 0x333355, hoverColor: 0x555588, stroke: 0x7799cc });
+    this.arrowR = createButton(this, 350, this.pagerY, 56, 40, "▶", () => this._page(1), { textSize: "16px", color: 0x333355, hoverColor: 0x555588, stroke: 0x7799cc });
+    this.pageText = this.add.text(270, this.pagerY, "", { fontFamily: "Arial", fontSize: "15px", color: "#cdd6ff", fontStyle: "bold" }).setOrigin(0.5);
 
     this.redraw();
 
@@ -73,6 +77,8 @@ export class BestiaryScene extends Phaser.Scene {
     this.page = Math.min(this.page, pages - 1);
     this.arrowL.setVisible(pages > 1);
     this.arrowR.setVisible(pages > 1);
+    this.pageText.setVisible(pages > 1);
+    this.pageText.setText(`${this.page + 1} / ${pages}`);
 
     const slice = this._entries.slice(this.page * PAGE_SIZE, this.page * PAGE_SIZE + PAGE_SIZE);
     const cardW = 155, cardH = 150, gap = 10;

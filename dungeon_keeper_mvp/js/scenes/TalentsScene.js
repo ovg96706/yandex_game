@@ -43,9 +43,12 @@ export class TalentsScene extends Phaser.Scene {
       const branch = TALENT_BRANCHES[branchId];
       const x = startX + ci * colW;
 
+      // Шапка ветки: название и валюта ветки живут ВНУТРИ рамки (118/136).
+      // Раньше валюта рисовалась на y=158 — поверх верхнего края первой карточки,
+      // и карточка (добавляется позже) перекрывала её непрозрачным фоном.
       const head = this.add.rectangle(x, 126, colW - 8, 40, 0x232344).setStrokeStyle(2, branch.color);
-      const headTxt = this.add.text(x, 126, `${branch.icon} ${t(branch.labelKey)}`, { fontFamily: "Arial", fontSize: "13px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5);
-      const currTxt = this.add.text(x, 158, "", { fontFamily: "Arial", fontSize: "12px", color: "#ffd700" }).setOrigin(0.5);
+      const headTxt = this.add.text(x, 118, `${branch.icon} ${t(branch.labelKey)}`, { fontFamily: "Arial", fontSize: "13px", color: "#ffffff", fontStyle: "bold", align: "center" }).setOrigin(0.5);
+      const currTxt = this.add.text(x, 136, "", { fontFamily: "Arial", fontSize: "12px", color: "#ffd700" }).setOrigin(0.5);
       currTxt.name = `curr_${branchId}`;
       this.cardLayer.add([head, headTxt, currTxt]);
       this._setBranchCurrency(currTxt, branch.currency);

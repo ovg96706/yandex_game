@@ -244,6 +244,39 @@ const registered = Object.keys(game.scene.keys || {});
 console.log(`scenes registered: ${registered.length} | active: ${game.scene.getScenes(true).map((s) => s.scene.key).join(", ") || "—"}`);
 if (!game.scene.isActive("MenuScene")) note("boot", "MenuScene не стала активной — игра осталась на экране загрузки");
 
+// PROBE_SCENE=MenuScene — дамп геометрии всех текстов сцены (проверка наездов вёрстки).
+if (process.env.PROBE_SCENE) {
+  game.scene.getScenes(true).forEach((sc) => game.scene.stop(sc.scene.key));
+  game.scene.start(process.env.PROBE_SCENE, { returnTo: "MenuScene" });
+  await step(20);
+  const sc = game.scene.getScene(process.env.PROBE_SCENE);
+  const flat = [];
+  const walk = (list, ox, oy) => {
+    for (const o of list) {
+      if (o.type === "Container") walk(o.list || [], ox + o.x, oy + o.y);
+      else flat.push({ o, ox, oy });
+    }
+  };
+  walk(sc.children.list, 0, 0);
+  const items = flat
+    .filter(({ o }) => o.type === "Text")
+    .map(({ o, ox, oy }) => ({
+      text: String(o.text).slice(0, 44).replace(/\n/g, "\\n"),
+      x: Math.round(ox + o.x - o.width * o.originX), y: Math.round(oy + o.y - o.height * o.originY),
+      w: Math.round(o.width), h: Math.round(o.height),
+    }));
+  console.log(JSON.stringify(items));
+  const overlaps = [];
+  for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+    const a = items[i], b = items[j];
+    const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
+    const oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    if (ox > 4 && oy > 4) overlaps.push([a.text, b.text, ox, oy]);
+  }
+  console.log("OVERLAPS:", JSON.stringify(overlaps));
+  process.exit(0);
+}
+
 // ---- create() каждой мета-сцены ----
 const META_SCENES = ["SettingsScene", "ShopScene", "TalentsScene", "BestiaryScene", "AchievementsScene",
   "LeaderboardScene", "QuestsScene", "DailyScene", "WheelScene"];

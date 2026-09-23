@@ -83,8 +83,11 @@ export class QuestsScene extends Phaser.Scene {
       const reward = this.add.text(60, y - 6, rewardText(q.reward), { fontFamily: "Arial", fontSize: "14px", color: "#ffd700" }).setOrigin(0, 0.5);
       const prog = this.add.text(60, y + 18, t("quest_progress", Math.min(q.current, q.goal), q.goal), { fontFamily: "Arial", fontSize: "14px", color: q.ready ? "#7effa7" : "#aabbcc" }).setOrigin(0, 0.5);
 
-      const barBg = this.add.rectangle(60, y + 40, 220, 8, 0x111122);
-      const barFill = this.add.rectangle(60 - 110, y + 40, Math.max(4, 220 * q.progress), 8, q.ready ? 0x57ffb8 : 0x00aaff).setOrigin(0, 0.5);
+      // Полоса прогресса внутри карточки: фон центрирован по (170, y+40),
+      // заливка растёт от левого края x=60 (раньше обе полосы были сдвинуты на -110
+      // и прогресс вылезал за левую границу карточки и экрана).
+      const barBg = this.add.rectangle(170, y + 40, 220, 8, 0x111122);
+      const barFill = this.add.rectangle(60, y + 40, Math.max(4, 220 * q.progress), 8, q.ready ? 0x57ffb8 : 0x00aaff).setOrigin(0, 0.5);
 
       this.cardLayer.add([panel, title, reward, prog, barBg, barFill]);
 

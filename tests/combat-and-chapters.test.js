@@ -40,20 +40,21 @@ test("footprint bounds: dragon fits only fully inside the grid", () => {
   assert.ok(!isFootprintInBounds(TOOL_DEFS.dragon, 0, 0.5)); // нецелые координаты
 });
 
-test("board validation: trap+monster combo allowed, same-kind overlaps rejected", () => {
+test("board validation: one unit per cell, overlaps and out-of-bounds rejected", () => {
   const board = validateBoard([
     { row: 0, col: 0, type: "spikes", level: 1 },
-    { row: 0, col: 0, type: "slime", level: 2 },      // комбо — легально
+    { row: 0, col: 0, type: "slime", level: 2 },      // второй юнит в клетке — отброшен
     { row: 0, col: 0, type: "fire_tile", level: 1 },  // вторая ловушка — отброшена
     { row: 1, col: 1, type: "dragon", level: 1 },     // занимает (1,1),(1,2),(2,1),(2,2)
     { row: 1, col: 2, type: "skeleton", level: 1 },   // пересекается с драконом — отброшена
     { row: 7, col: 4, type: "dragon", level: 1 },     // не помещается — отброшена
-    { row: 1, col: 2, type: "poison", level: 1 },     // ловушка под клеткой дракона — легально (свой слот)
+    { row: 1, col: 2, type: "poison", level: 1 },     // клетка дракона занята — отброшена
+    { row: 3, col: 3, type: "slime", level: 1 },      // свободная клетка — легально
   ]);
   const keys = board.map((b) => `${b.row}_${b.col}_${b.type}`).sort();
-  assert.deepEqual(keys, ["0_0_slime", "0_0_spikes", "1_1_dragon", "1_2_poison"].sort());
-  // kind всегда выводится из definиции, а не из ненадёжных данных
-  assert.equal(board.find((b) => b.type === "poison").kind, "trap");
+  assert.deepEqual(keys, ["0_0_spikes", "1_1_dragon", "3_3_slime"].sort());
+  // kind всегда выводится из дефиниции, а не из ненадёжных данных
+  assert.equal(board.find((b) => b.type === "spikes").kind, "trap");
 });
 
 test("chapter lookup maps waves to campaign chapters", () => {

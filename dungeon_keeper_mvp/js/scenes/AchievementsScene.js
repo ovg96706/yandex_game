@@ -1,6 +1,6 @@
 import { audio } from "../audio.js";
 import { createButton } from "../ui.js";
-import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES, achLabel, achDesc } from "../config.js";
+import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES, achLabel, achDesc, rewardText } from "../config.js";
 import { achievements } from "../achievements.js";
 import { t } from "../i18n.js";
 
@@ -188,11 +188,9 @@ export class AchievementsScene extends Phaser.Scene {
     container.add(progText);
 
     if (ach.reward) {
-      const rewardText = [
-        ach.reward.gold ? `+${ach.reward.gold}🪙` : null,
-        ach.reward.souls ? `+${ach.reward.souls}💀` : null,
-      ].filter(Boolean).join(" ");
-      const r = this.add.text(w / 2 - 12, -18, rewardText, {
+      // Общая форматировалка наград: раньше здесь собирали строку вручную
+      // и теряли 💎/🔮 — у достижений без золота и душ награда не отображалась.
+      const r = this.add.text(w / 2 - 12, -18, rewardText(ach.reward), {
         fontFamily: "Arial", fontSize: "12px", color: unlocked ? "#7effa7" : "#ffd700", fontStyle: "bold",
       }).setOrigin(1, 0.5);
       container.add(r);

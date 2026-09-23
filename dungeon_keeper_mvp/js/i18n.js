@@ -228,7 +228,7 @@ const LOCALES = {
     // ===== ЮНИТЫ =====
     // Ловушки
     unit_spikes: "Шипы",
-    unit_spikes_desc: "Урон при наступании.",
+    unit_spikes_desc: "Урон наступившим на клетку. Бьёт периодически.",
     unit_fire_tile: "Огонь",
     unit_fire_tile_desc: "Высокий урон и поджог: цель горит 4 сек.",
     unit_ice_wall: "Лёд",
@@ -726,7 +726,7 @@ const LOCALES = {
 
     // Юниты
     unit_spikes: "Spikes",
-    unit_spikes_desc: "Damage when stepped on.",
+    unit_spikes_desc: "Hurts heroes standing on its tile, ticking repeatedly.",
     unit_fire_tile: "Fire",
     unit_fire_tile_desc: "High damage and burning: the target burns for 4s.",
     unit_ice_wall: "Ice",
@@ -1214,7 +1214,7 @@ const LOCALES = {
     lb_guest_name: "Bekçi {0}",
 
     unit_spikes: "Dikenler",
-    unit_spikes_desc: "Basınca hasar.",
+    unit_spikes_desc: "Karesinde duran kahramanlara sürekli hasar verir.",
     unit_fire_tile: "Ateş",
     unit_fire_tile_desc: "Yüksek hasar ve yanma: hedef 4 sn yanar.",
     unit_ice_wall: "Buz",

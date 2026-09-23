@@ -62,7 +62,7 @@ export class GameScene extends Phaser.Scene {
     this.pendingReward = null;
     this.popupObjects = [];
     this.heroes = [];
-    this.gridItems = new Map(); // "row_col" -> { trap, monster }: комбо-слоты, дракон 2×2
+    this.gridItems = new Map(); // "row_col" -> { trap, monster }: слоты клетки; живым остаётся один слот (1 юнит на клетку), дракон 2×2
     this.selectedTool = "spikes";
     this.dragItem = null;
     this.dragGraphic = null;
@@ -285,7 +285,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ============================
-  // ДОСКА: комбо «ловушка + монстр» в клетке, фигуры 2×2 (дракон)
+  // ДОСКА: один юнит на клетку (ловушка ИЛИ монстр), фигуры 2×2 (дракон)
   // gridItems: key("row_col") -> { trap: piece|null, monster: piece|null }
   // Не-якорные клетки дракона ссылаются на ту же фигуру (якорь — верхний левый угол).
   // ============================
@@ -321,12 +321,18 @@ export class GameScene extends Phaser.Scene {
 
   piecesOfKind(kind) { return this.iterPieces().filter((p) => p.kind === kind); }
 
-  /** Фигура def помещается якорем в (row, col): вся в сетке и слоты её типа свободны. */
+  /** Фигура def помещается якорем в (row, col): вся в сетке и клетки свободны.
+   *  Клетка занята, если в ней стоит ЛЮБОЙ юнит (ловушка или монстр) —
+   *  несколько юнитов на одной клетке быть не может. */
   isFootprintFree(def, row, col, ignore = null) {
     if (!isFootprintInBounds(def, row, col)) return false;
     for (const c of getToolFootprint(def, row, col)) {
-      const occ = this.cellEntry(c.row, c.col)?.[def.kind];
-      if (occ && occ !== ignore) return false;
+      const entry = this.cellEntry(c.row, c.col);
+      if (!entry) continue;
+      for (const kind of ["trap", "monster"]) {
+        const occ = entry[kind];
+        if (occ && occ !== ignore) return false;
+      }
     }
     return true;
   }
@@ -405,7 +411,8 @@ export class GameScene extends Phaser.Scene {
     const selDef = TOOL_DEFS[this.selectedTool];
     if (!selDef || this.waveInProgress) return;
     // Фигуру того же типа, что и выбранный инструмент, перетаскиваем (ход/мёрдж);
-    // инструмент другого типа ставится в свободный слой клетки — комбо ловушка+монстр.
+    // инструмент другого типа в занятую клетку не встанет: isFootprintFree
+    // считает клетку занятой любым юнитом и placeNewPiece покажет «клетка занята».
     if (topPiece && topPiece.kind === selDef.kind) { this.startDrag(topPiece); return; }
     this.placeNewPiece(row, col, pointer);
   }
@@ -723,6 +730,29 @@ export class GameScene extends Phaser.Scene {
       if (piece.cooldown > 0) continue;
       const def = TOOL_DEFS[piece.type];
       const pPos = this.piecePos(piece);
+
+      // Шипы (stepOnly): не стреляют и не бьют по площади — ранят только героев,
+      // стоящих на своей клетке, и делают это периодически (каждый кулдаун),
+      // пока герой не уйдёт с клетки или не погибнет.
+      if (def.stepOnly) {
+        const g = GAME_CONFIG.grid;
+        const x1 = g.offsetX + piece.col * g.cell, y1 = g.offsetY + piece.row * g.cell;
+        const x2 = x1 + g.cell, y2 = y1 + g.cell;
+        let hitAny = false;
+        for (const h of this.heroes) {
+          if (h.dead || h.disableTraps) continue;
+          if (h.container.x < x1 || h.container.x > x2 || h.container.y < y1 || h.container.y > y2) continue;
+          const isBoss = h.isBoss || false;
+          const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, h.weaknessTool);
+          this.damageHero(h, dmg, isCrit);
+          hitAny = true;
+        }
+        if (!hitAny) continue; // никого на клетке — шипы молчат и не тратят кулдаун впустую
+        piece.cooldown = getTrapCooldown(def, saveManager.data);
+        this.pulsePiece(piece);
+        audio.trapHit();
+        continue;
+      }
 
       if (def.id === "blackhole") {
         const pullR2 = ((def.pullRadius || 2.5) * cellSize) ** 2;

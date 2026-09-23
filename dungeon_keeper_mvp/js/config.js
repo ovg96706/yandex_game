@@ -14,7 +14,7 @@ import { t } from "./i18n.js";
 // ============================
 
 export const TOOL_DEFS = {
-  spikes: { id: "spikes", labelKey: "unit_spikes", descKey: "unit_spikes_desc", kind: "trap", label: "Шипы", icon: "▲", cost: 30, damage: 25, cooldown: 700, color: 0xb0b0b0, mergeColors: [0xb0b0b0, 0xc8c8c8, 0xe0d060, 0xff9933, 0xff3333], description: "Урон при наступании." },
+  spikes: { id: "spikes", labelKey: "unit_spikes", descKey: "unit_spikes_desc", kind: "trap", label: "Шипы", icon: "▲", cost: 30, damage: 25, cooldown: 700, color: 0xb0b0b0, mergeColors: [0xb0b0b0, 0xc8c8c8, 0xe0d060, 0xff9933, 0xff3333], description: "Урон наступившим на клетку, периодически.", stepOnly: true },
   fire_tile: { id: "fire_tile", labelKey: "unit_fire_tile", descKey: "unit_fire_tile_desc", kind: "trap", label: "Огонь", icon: "🔥", cost: 55, damage: 35, cooldown: 850, color: 0xff6b35, mergeColors: [0xff6b35, 0xff8844, 0xffaa22, 0xff5500, 0xff0000], description: "Высокий урон, поджигает.", unlockWave: 5, burnDPS: 7, burnDuration: 4000 },
   ice_wall: { id: "ice_wall", labelKey: "unit_ice_wall", descKey: "unit_ice_wall_desc", kind: "trap", label: "Лёд", icon: "❄", cost: 50, damage: 12, cooldown: 1200, slowFactor: 0.4, slowDuration: 3000, blockDuration: 900, color: 0x74b9ff, mergeColors: [0x74b9ff, 0x55ccff, 0x33ddff, 0x00eeff, 0x00ffff], description: "Замедляет на 60%.", unlockWave: 10 },
   poison: { id: "poison", labelKey: "unit_poison", descKey: "unit_poison_desc", kind: "trap", label: "Яд", icon: "☠", cost: 65, damage: 8, cooldown: 1500, color: 0x6c5ce7, mergeColors: [0x6c5ce7, 0x7d6cf0, 0x9b59b6, 0xbe2edd, 0xff00ff], description: "Ядовит. Урон 5 сек.", unlockWave: 18, poisonDPS: 8, poisonDuration: 5000 },
@@ -645,6 +645,8 @@ export function getMonsterCooldown(toolDef, save) {
 
 /** Модифицированная дальность ловушки/монстра */
 export function getToolRange(toolDef, save) {
+  // Шипы и прочие stepOnly-ловушки не стреляют: работают только по своей клетке.
+  if (toolDef.stepOnly) return 0;
   const bonus = toolDef.kind === "trap"
     ? (save.trapRangeBonus ?? 1)
     : (save.monsterRangeBonus ?? 1);
@@ -714,13 +716,14 @@ export function isFootprintInBounds(toolDef, row, col, grid = GAME_CONFIG.grid) 
 
 /**
  * Валидация доски из ненадёжного сейва.
- * Правила: клетка хранит максимум одну ловушку и одного монстра (комбо),
- * дракон занимает блок 2×2. Некорректные записи и пересечения отбрасываются.
+ * Правила: в клетке стоит максимум ОДИН юнит (ловушка ИЛИ монстр — слоты не
+ * совмещаются), дракон занимает блок 2×2. Некорректные записи и пересечения
+ * отбрасываются, второй юнит в занятой клетке — тоже.
  */
 export function validateBoard(rawBoard, grid = GAME_CONFIG.grid, maxEntries = 80) {
   const out = [];
   if (!Array.isArray(rawBoard)) return out;
-  const occupied = new Set(); // `${row}_${col}_${kind}`
+  const occupied = new Set(); // `${row}_${col}` — клетка занята юнитом любого типа
   for (const item of rawBoard.slice(0, maxEntries)) {
     if (!item || typeof item !== "object") continue;
     const def = TOOL_DEFS[item.type];
@@ -733,10 +736,10 @@ export function validateBoard(rawBoard, grid = GAME_CONFIG.grid, maxEntries = 80
     const cells = getToolFootprint(def, row, col);
     let clash = false;
     for (const cell of cells) {
-      if (occupied.has(`${cell.row}_${cell.col}_${def.kind}`)) { clash = true; break; }
+      if (occupied.has(`${cell.row}_${cell.col}`)) { clash = true; break; }
     }
     if (clash) continue;
-    for (const cell of cells) occupied.add(`${cell.row}_${cell.col}_${def.kind}`);
+    for (const cell of cells) occupied.add(`${cell.row}_${cell.col}`);
     out.push({ row, col, kind: def.kind, type: def.id, level });
   }
   return out;
