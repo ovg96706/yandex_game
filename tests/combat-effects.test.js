@@ -1,6 +1,6 @@
 /**
  * Механики боя, доведённые до дизайн-документа:
- * лучник, поджог огненной плитки (DoT), блокировка ледяной стеной, воскрешение некроманта.
+ * лучник, поджог огненной плитки (DoT), замедление ледяной стеной, воскрешение некроманта.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -37,13 +37,13 @@ test("fire tile applies a burn DoT scaled by level and trap damage bonus", () =>
   assert.equal(getBurnEffect(TOOL_DEFS.spikes, 5, { trapDamageBonus: 3 }), null);
 });
 
-test("ice wall both slows for 3s and physically blocks the hero", () => {
+test("ice wall slows the hero for 3 seconds and does not fully block him", () => {
   const ice = TOOL_DEFS.ice_wall;
   assert.equal(ice.slowDuration, 3000, "design doc: ice slows for 3 seconds");
-  const block1 = getBlockDuration(ice, 1);
-  assert.ok(block1 > 0, "ice wall must stop the hero, not only slow him");
-  assert.ok(getBlockDuration(ice, 4) > block1, "block grows with merge level");
-  assert.ok(getBlockDuration(ice, 5) <= 2500, "block is capped");
+  assert.ok(ice.slowFactor > 0 && ice.slowFactor < 1, "slow factor reduces speed");
+  // По таблице дизайна ледяная стена ТОЛЬКО замедляет — полной остановки нет.
+  assert.equal(getBlockDuration(ice, 1), 0);
+  assert.equal(getBlockDuration(ice, 5), 0);
   assert.equal(getBlockDuration(TOOL_DEFS.spikes, 5), 0);
 });
 

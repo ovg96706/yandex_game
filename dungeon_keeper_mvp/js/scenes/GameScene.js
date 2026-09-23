@@ -26,7 +26,14 @@ import { showAchievementToast } from "../achievementToast.js";
 import { t } from "../i18n.js";
 
 export class GameScene extends Phaser.Scene {
-  constructor() { super("GameScene"); }
+  /**
+   * Ключ сцены ОБЯЗАТЕЛЬНО принимается параметром: EndlessScene наследуется от
+   * GameScene, а конструктор без параметров игнорирует аргумент super("EndlessScene")
+   * (A.prototype.constructor вызывается без аргументов) — обе сцены получали ключ
+   * "GameScene", Phaser падал с "Cannot add a Scene with duplicate key" ещё до
+   * регистрации сцен, и в браузере оставался только чёрный экран.
+   */
+  constructor(key = "GameScene") { super(key); }
 
   /** mode: "story" (кампания) | "endless" (Бездна — отдельный забег). */
   init(data) { this.gameMode = data?.mode === "endless" ? "endless" : "story"; }
@@ -55,7 +62,7 @@ export class GameScene extends Phaser.Scene {
     this.pendingReward = null;
     this.popupObjects = [];
     this.heroes = [];
-    this.gridItems = new Map(); // "row_col" -> { trap, monster }: комбо-слоты, дракон 2×2
+    this.gridItems = new Map(); // "row_col" -> { trap, monster }: слоты клетки; живым остаётся один слот (1 юнит на клетку), дракон 2×2
     this.selectedTool = "spikes";
     this.dragItem = null;
     this.dragGraphic = null;
@@ -278,7 +285,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ============================
-  // ДОСКА: комбо «ловушка + монстр» в клетке, фигуры 2×2 (дракон)
+  // ДОСКА: один юнит на клетку (ловушка ИЛИ монстр), фигуры 2×2 (дракон)
   // gridItems: key("row_col") -> { trap: piece|null, monster: piece|null }
   // Не-якорные клетки дракона ссылаются на ту же фигуру (якорь — верхний левый угол).
   // ============================
@@ -314,12 +321,18 @@ export class GameScene extends Phaser.Scene {
 
   piecesOfKind(kind) { return this.iterPieces().filter((p) => p.kind === kind); }
 
-  /** Фигура def помещается якорем в (row, col): вся в сетке и слоты её типа свободны. */
+  /** Фигура def помещается якорем в (row, col): вся в сетке и клетки свободны.
+   *  Клетка занята, если в ней стоит ЛЮБОЙ юнит (ловушка или монстр) —
+   *  несколько юнитов на одной клетке быть не может. */
   isFootprintFree(def, row, col, ignore = null) {
     if (!isFootprintInBounds(def, row, col)) return false;
     for (const c of getToolFootprint(def, row, col)) {
-      const occ = this.cellEntry(c.row, c.col)?.[def.kind];
-      if (occ && occ !== ignore) return false;
+      const entry = this.cellEntry(c.row, c.col);
+      if (!entry) continue;
+      for (const kind of ["trap", "monster"]) {
+        const occ = entry[kind];
+        if (occ && occ !== ignore) return false;
+      }
     }
     return true;
   }
@@ -395,11 +408,12 @@ export class GameScene extends Phaser.Scene {
       if (topPiece && !this.waveInProgress) this.erasePiece(topPiece, pointer);
       return;
     }
+    if (this.waveInProgress) return;
+    // Уже выставленный юнит перетаскивается (ход/мёрдж) при ЛЮБОМ выбранном в панели
+    // инструменте: выбор инструмента влияет только на постановку в пустую клетку.
+    if (topPiece) { this.startDrag(topPiece); return; }
     const selDef = TOOL_DEFS[this.selectedTool];
-    if (!selDef || this.waveInProgress) return;
-    // Фигуру того же типа, что и выбранный инструмент, перетаскиваем (ход/мёрдж);
-    // инструмент другого типа ставится в свободный слой клетки — комбо ловушка+монстр.
-    if (topPiece && topPiece.kind === selDef.kind) { this.startDrag(topPiece); return; }
+    if (!selDef) return;
     this.placeNewPiece(row, col, pointer);
   }
 
@@ -692,7 +706,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = this.heroes.length - 1; i >= 0; i--) {
       const hero = this.heroes[i];
       if (hero.dead) continue;
-      // Ледяная стена реально держит героя на месте (не просто замедляет).
+      // Герой, задержанный эффектом полной остановки (blockedUntil), стоит на месте.
       if (!hero.engaged && hero.blockedUntil <= time) {
         const sm = hero.slowUntil > time ? hero.speedMultiplier : 1;
         hero.container.y += hero.speed * sm * dt;
@@ -716,6 +730,29 @@ export class GameScene extends Phaser.Scene {
       if (piece.cooldown > 0) continue;
       const def = TOOL_DEFS[piece.type];
       const pPos = this.piecePos(piece);
+
+      // Шипы (stepOnly): не стреляют и не бьют по площади — ранят только героев,
+      // стоящих на своей клетке, и делают это периодически (каждый кулдаун),
+      // пока герой не уйдёт с клетки или не погибнет.
+      if (def.stepOnly) {
+        const g = GAME_CONFIG.grid;
+        const x1 = g.offsetX + piece.col * g.cell, y1 = g.offsetY + piece.row * g.cell;
+        const x2 = x1 + g.cell, y2 = y1 + g.cell;
+        let hitAny = false;
+        for (const h of this.heroes) {
+          if (h.dead || h.disableTraps) continue;
+          if (h.container.x < x1 || h.container.x > x2 || h.container.y < y1 || h.container.y > y2) continue;
+          const isBoss = h.isBoss || false;
+          const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, h.weaknessTool);
+          this.damageHero(h, dmg, isCrit);
+          hitAny = true;
+        }
+        if (!hitAny) continue; // никого на клетке — шипы молчат и не тратят кулдаун впустую
+        piece.cooldown = getTrapCooldown(def, saveManager.data);
+        this.pulsePiece(piece);
+        audio.trapHit();
+        continue;
+      }
 
       if (def.id === "blackhole") {
         const pullR2 = ((def.pullRadius || 2.5) * cellSize) ** 2;
@@ -786,19 +823,33 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (def.id === "poison") {
-        const target = this._findHeroForTrap(piece, true);
-        if (!target) continue;
-        const isBoss = target.isBoss || false;
-        const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
-        // Яд накладывается, только если удар ловушки не заблокирован щитом.
-        if (this.damageHero(target, dmg, isCrit) && !target.dead) {
-          target.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
-          target.poisonEndTime = time + (def.poisonDuration || 5000);
-          target.poisonTimer = 0;
-          spawnPoisonCloud(this, pPos.x, pPos.y);
+        // Ядовитое облако: AoE-урон по области 3×3 клетки вокруг ловушки —
+        // каждый тик кулдауна задевает ВСЕХ героев в области и отравляет их.
+        const cells = def.aoeCells ?? 1;
+        const g = GAME_CONFIG.grid;
+        const x1 = g.offsetX + (piece.col - cells) * g.cell, y1 = g.offsetY + (piece.row - cells) * g.cell;
+        const x2 = g.offsetX + (piece.col + cells + 1) * g.cell, y2 = g.offsetY + (piece.row + cells + 1) * g.cell;
+        let hitAny = false;
+        for (const h of this.heroes) {
+          if (h.dead || h.disableTraps) continue;
+          if (h.container.x < x1 || h.container.x > x2 || h.container.y < y1 || h.container.y > y2) continue;
+          const isBoss = h.isBoss || false;
+          const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, h.weaknessTool);
+          // Яд накладывается, только если удар ловушки не заблокирован щитом.
+          if (this.damageHero(h, dmg, isCrit) && !h.dead) {
+            h.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
+            h.poisonEndTime = time + (def.poisonDuration || 5000);
+            h.poisonTimer = 0;
+          }
+          hitAny = true;
         }
-        audio.trapHit();
-        piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
+        if (hitAny) {
+          spawnPoisonCloud(this, pPos.x, pPos.y);
+          audio.trapHit();
+          piece.cooldown = getTrapCooldown(def, saveManager.data);
+          this.pulsePiece(piece);
+        }
+        continue;
       }
 
       const target = this._findHeroForTrap(piece, true);
@@ -810,8 +861,9 @@ export class GameScene extends Phaser.Scene {
         target.speedMultiplier = def.slowFactor;
         target.slowUntil = time + (def.slowDuration || 2000) * (saveManager.data.slowBonus ?? 1);
       }
-      // Ледяная стена: помимо замедления полностью останавливает героя на короткое время.
       if (applied && !target.dead) {
+        // Полная остановка — для инструментов с blockDuration (ледяная стена по спеке
+        // только замедляет на 3 секунды, поэтому blockDuration у неё убран).
         const blockMs = getBlockDuration(def, piece.level);
         if (blockMs) {
           target.blockedUntil = Math.max(target.blockedUntil || 0, time + blockMs);

@@ -14,21 +14,21 @@ import { t } from "./i18n.js";
 // ============================
 
 export const TOOL_DEFS = {
-  spikes: { id: "spikes", labelKey: "unit_spikes", descKey: "unit_spikes_desc", kind: "trap", label: "Шипы", icon: "▲", cost: 30, damage: 25, cooldown: 700, color: 0xb0b0b0, mergeColors: [0xb0b0b0, 0xc8c8c8, 0xe0d060, 0xff9933, 0xff3333], description: "Урон при наступании." },
+  spikes: { id: "spikes", labelKey: "unit_spikes", descKey: "unit_spikes_desc", kind: "trap", label: "Шипы", icon: "▲", cost: 30, damage: 25, cooldown: 700, color: 0xb0b0b0, mergeColors: [0xb0b0b0, 0xc8c8c8, 0xe0d060, 0xff9933, 0xff3333], description: "Урон наступившим на клетку, периодически.", stepOnly: true },
   fire_tile: { id: "fire_tile", labelKey: "unit_fire_tile", descKey: "unit_fire_tile_desc", kind: "trap", label: "Огонь", icon: "🔥", cost: 55, damage: 35, cooldown: 850, color: 0xff6b35, mergeColors: [0xff6b35, 0xff8844, 0xffaa22, 0xff5500, 0xff0000], description: "Высокий урон, поджигает.", unlockWave: 5, burnDPS: 7, burnDuration: 4000 },
-  ice_wall: { id: "ice_wall", labelKey: "unit_ice_wall", descKey: "unit_ice_wall_desc", kind: "trap", label: "Лёд", icon: "❄", cost: 50, damage: 12, cooldown: 1200, slowFactor: 0.4, slowDuration: 3000, blockDuration: 900, color: 0x74b9ff, mergeColors: [0x74b9ff, 0x55ccff, 0x33ddff, 0x00eeff, 0x00ffff], description: "Замедляет на 60%.", unlockWave: 10 },
-  poison: { id: "poison", labelKey: "unit_poison", descKey: "unit_poison_desc", kind: "trap", label: "Яд", icon: "☠", cost: 65, damage: 8, cooldown: 1500, color: 0x6c5ce7, mergeColors: [0x6c5ce7, 0x7d6cf0, 0x9b59b6, 0xbe2edd, 0xff00ff], description: "Ядовит. Урон 5 сек.", unlockWave: 18, poisonDPS: 8, poisonDuration: 5000 },
-  lightning: { id: "lightning", labelKey: "unit_lightning", descKey: "unit_lightning_desc", kind: "trap", label: "Молния", icon: "⚡", cost: 85, damage: 50, cooldown: 2000, color: 0xf9ca24, mergeColors: [0xf9ca24, 0xfbda52, 0xfdeb71, 0xffff00, 0xffffff], description: "Цепная молния (3 цели).", unlockWave: 25, chainCount: 3, chainRange: 2.5 },
-  teleport: { id: "teleport", labelKey: "unit_teleport", descKey: "unit_teleport_desc", kind: "trap", label: "Телепорт", icon: "🌀", cost: 100, damage: 0, cooldown: 4000, color: 0xa855f7, mergeColors: [0xa855f7, 0xb86ef8, 0xc884f9, 0xd89afa, 0xe8b0fb], description: "Отбрасывает наверх.", unlockWave: 35, teleportRows: 5 },
-  blackhole: { id: "blackhole", labelKey: "unit_blackhole", descKey: "unit_blackhole_desc", kind: "trap", label: "Чёрн. дыра", icon: "🕳️", cost: 150, damage: 20, cooldown: 3000, color: 0x2d1b69, mergeColors: [0x2d1b69, 0x3d2b79, 0x4d3b89, 0x5d4b99, 0x7d6bb9], description: "Притягивает + AoE.", unlockWave: 50, pullRadius: 2.5, aoeDamage: 15 },
+  ice_wall: { id: "ice_wall", labelKey: "unit_ice_wall", descKey: "unit_ice_wall_desc", kind: "trap", label: "Лёд", icon: "❄", cost: 50, damage: 12, cooldown: 1200, slowFactor: 0.4, slowDuration: 3000, color: 0x74b9ff, mergeColors: [0x74b9ff, 0x55ccff, 0x33ddff, 0x00eeff, 0x00ffff], description: "Замедляет на 60% на 3 секунды.", unlockWave: 10 },
+  poison: { id: "poison", labelKey: "unit_poison", descKey: "unit_poison_desc", kind: "trap", label: "Яд", icon: "☠", cost: 65, damage: 8, cooldown: 1500, color: 0x6c5ce7, mergeColors: [0x6c5ce7, 0x7d6cf0, 0x9b59b6, 0xbe2edd, 0xff00ff], description: "Облако 3×3: урон по области и отравление.", unlockWave: 20, aoeCells: 1, poisonDPS: 8, poisonDuration: 5000 },
+  lightning: { id: "lightning", labelKey: "unit_lightning", descKey: "unit_lightning_desc", kind: "trap", label: "Молния", icon: "⚡", cost: 85, damage: 50, cooldown: 2000, color: 0xf9ca24, mergeColors: [0xf9ca24, 0xfbda52, 0xfdeb71, 0xffff00, 0xffffff], description: "Цепная молния (3 цели).", unlockWave: 35, chainCount: 3, chainRange: 2.5 },
+  teleport: { id: "teleport", labelKey: "unit_teleport", descKey: "unit_teleport_desc", kind: "trap", label: "Телепорт", icon: "🌀", cost: 100, damage: 0, cooldown: 4000, color: 0xa855f7, mergeColors: [0xa855f7, 0xb86ef8, 0xc884f9, 0xd89afa, 0xe8b0fb], description: "Отбрасывает наверх.", unlockWave: 50, teleportRows: 5 },
+  blackhole: { id: "blackhole", labelKey: "unit_blackhole", descKey: "unit_blackhole_desc", kind: "trap", label: "Чёрн. дыра", icon: "🕳️", cost: 150, damage: 20, cooldown: 3000, color: 0x2d1b69, mergeColors: [0x2d1b69, 0x3d2b79, 0x4d3b89, 0x5d4b99, 0x7d6bb9], description: "Притягивает + AoE.", unlockWave: 70, pullRadius: 2.5, aoeDamage: 15 },
 
-  slime: { id: "slime", labelKey: "unit_slime", descKey: "unit_slime_desc", kind: "monster", label: "Слайм", icon: "S", cost: 45, damage: 18, cooldown: 900, range: 2.2, monsterHP: 90, color: 0x57ffb8, mergeColors: [0x57ffb8, 0x44ff99, 0x33ff77, 0x22ff55, 0x00ff33], description: "Ближний бой." },
+  slime: { id: "slime", labelKey: "unit_slime", descKey: "unit_slime_desc", kind: "monster", label: "Слайм", icon: "S", cost: 45, damage: 10, cooldown: 900, range: 2.2, monsterHP: 160, color: 0x57ffb8, mergeColors: [0x57ffb8, 0x44ff99, 0x33ff77, 0x22ff55, 0x00ff33], description: "Слабый, дешёвый, живучий." },
   skeleton: { id: "skeleton", labelKey: "unit_skeleton", descKey: "unit_skeleton_desc", kind: "monster", label: "Скелет", icon: "💀", cost: 70, damage: 30, cooldown: 1100, range: 1.8, monsterHP: 150, color: 0xe8dcc8, mergeColors: [0xe8dcc8, 0xf0e8d8, 0xf8f0e0, 0xffcc66, 0xff6600], description: "Сильный ближний бой.", unlockWave: 8 },
   goblin: { id: "goblin", labelKey: "unit_goblin", descKey: "unit_goblin_desc", kind: "monster", label: "Гоблин", icon: "G", cost: 90, damage: 22, cooldown: 600, range: 3.5, monsterHP: 80, color: 0x88cc44, mergeColors: [0x88cc44, 0x99dd44, 0xaaee44, 0xccff00, 0xffff00], description: "Дальний, быстрый.", unlockWave: 15 },
-  elemental: { id: "elemental", labelKey: "unit_elemental", descKey: "unit_elemental_desc", kind: "monster", label: "Элементаль", icon: "🔥", cost: 110, damage: 28, cooldown: 1300, range: 2.0, monsterHP: 140, color: 0xff6348, mergeColors: [0xff6348, 0xff7b5e, 0xff9374, 0xffab8a, 0xffc3a0], description: "AoE урон в 2 клетках.", unlockWave: 20, aoeRange: 2 },
-  dark_knight: { id: "dark_knight", labelKey: "unit_dark_knight", descKey: "unit_dark_knight_desc", kind: "monster", label: "Тёмн. рыцарь", icon: "⚔", cost: 140, damage: 45, cooldown: 1500, range: 1.5, monsterHP: 240, color: 0x2c3e50, mergeColors: [0x2c3e50, 0x34495e, 0x3d566e, 0x4a6480, 0x5d7a96], description: "Танк + контратака.", unlockWave: 30, counterDamage: 20 },
-  necromancer: { id: "necromancer", labelKey: "unit_necromancer", descKey: "unit_necromancer_desc", kind: "monster", label: "Некромант", icon: "👻", cost: 180, damage: 15, cooldown: 2000, range: 3.0, monsterHP: 110, color: 0x6c3483, mergeColors: [0x6c3483, 0x7d3c98, 0x8e44ad, 0xa04cbf, 0xb355d1], description: "Усиливает соседей.", unlockWave: 40, buffRadius: 2, buffAmount: 0.3, reviveInterval: 7000, reviveHpFactor: 0.5 },
-  dragon: { id: "dragon", labelKey: "unit_dragon", descKey: "unit_dragon_desc", kind: "monster", label: "Дракон", icon: "🐉", cost: 250, damage: 60, cooldown: 2200, range: 4.0, monsterHP: 320, size: 2, color: 0x8b0000, mergeColors: [0x8b0000, 0xa01010, 0xb52020, 0xcc3030, 0xff4444], description: "Огненное дыхание. 2×2.", unlockWave: 55, breathWidth: 1.2 },
+  elemental: { id: "elemental", labelKey: "unit_elemental", descKey: "unit_elemental_desc", kind: "monster", label: "Элементаль", icon: "🔥", cost: 110, damage: 28, cooldown: 1300, range: 2.0, monsterHP: 140, color: 0xff6348, mergeColors: [0xff6348, 0xff7b5e, 0xff9374, 0xffab8a, 0xffc3a0], description: "AoE урон в 2 клетках.", unlockWave: 25, aoeRange: 2 },
+  dark_knight: { id: "dark_knight", labelKey: "unit_dark_knight", descKey: "unit_dark_knight_desc", kind: "monster", label: "Тёмн. рыцарь", icon: "⚔", cost: 140, damage: 45, cooldown: 1500, range: 1.5, monsterHP: 240, color: 0x2c3e50, mergeColors: [0x2c3e50, 0x34495e, 0x3d566e, 0x4a6480, 0x5d7a96], description: "Танк + контратака.", unlockWave: 40, counterDamage: 20 },
+  necromancer: { id: "necromancer", labelKey: "unit_necromancer", descKey: "unit_necromancer_desc", kind: "monster", label: "Некромант", icon: "👻", cost: 180, damage: 15, cooldown: 2000, range: 3.0, monsterHP: 110, color: 0x6c3483, mergeColors: [0x6c3483, 0x7d3c98, 0x8e44ad, 0xa04cbf, 0xb355d1], description: "Усиливает соседей.", unlockWave: 55, buffRadius: 2, buffAmount: 0.3, reviveInterval: 7000, reviveHpFactor: 0.5 },
+  dragon: { id: "dragon", labelKey: "unit_dragon", descKey: "unit_dragon_desc", kind: "monster", label: "Дракон", icon: "🐉", cost: 250, damage: 60, cooldown: 2200, range: 4.0, monsterHP: 320, size: 2, color: 0x8b0000, mergeColors: [0x8b0000, 0xa01010, 0xb52020, 0xcc3030, 0xff4444], description: "Огненное дыхание. 2×2.", unlockWave: 80, breathWidth: 1.2 },
 };
 
 // ============================
@@ -645,6 +645,8 @@ export function getMonsterCooldown(toolDef, save) {
 
 /** Модифицированная дальность ловушки/монстра */
 export function getToolRange(toolDef, save) {
+  // Шипы и прочие stepOnly-ловушки не стреляют: работают только по своей клетке.
+  if (toolDef.stepOnly) return 0;
   const bonus = toolDef.kind === "trap"
     ? (save.trapRangeBonus ?? 1)
     : (save.monsterRangeBonus ?? 1);
@@ -714,13 +716,14 @@ export function isFootprintInBounds(toolDef, row, col, grid = GAME_CONFIG.grid) 
 
 /**
  * Валидация доски из ненадёжного сейва.
- * Правила: клетка хранит максимум одну ловушку и одного монстра (комбо),
- * дракон занимает блок 2×2. Некорректные записи и пересечения отбрасываются.
+ * Правила: в клетке стоит максимум ОДИН юнит (ловушка ИЛИ монстр — слоты не
+ * совмещаются), дракон занимает блок 2×2. Некорректные записи и пересечения
+ * отбрасываются, второй юнит в занятой клетке — тоже.
  */
 export function validateBoard(rawBoard, grid = GAME_CONFIG.grid, maxEntries = 80) {
   const out = [];
   if (!Array.isArray(rawBoard)) return out;
-  const occupied = new Set(); // `${row}_${col}_${kind}`
+  const occupied = new Set(); // `${row}_${col}` — клетка занята юнитом любого типа
   for (const item of rawBoard.slice(0, maxEntries)) {
     if (!item || typeof item !== "object") continue;
     const def = TOOL_DEFS[item.type];
@@ -733,10 +736,10 @@ export function validateBoard(rawBoard, grid = GAME_CONFIG.grid, maxEntries = 80
     const cells = getToolFootprint(def, row, col);
     let clash = false;
     for (const cell of cells) {
-      if (occupied.has(`${cell.row}_${cell.col}_${def.kind}`)) { clash = true; break; }
+      if (occupied.has(`${cell.row}_${cell.col}`)) { clash = true; break; }
     }
     if (clash) continue;
-    for (const cell of cells) occupied.add(`${cell.row}_${cell.col}_${def.kind}`);
+    for (const cell of cells) occupied.add(`${cell.row}_${cell.col}`);
     out.push({ row, col, kind: def.kind, type: def.id, level });
   }
   return out;

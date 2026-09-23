@@ -16,6 +16,18 @@ import { SettingsScene } from "./scenes/SettingsScene.js";
 import { audio } from "./audio.js";
 import { SDK } from "./sdk.js";
 
+/** Все сцены игры. Ключ каждой обязан быть уникальным — иначе Phaser
+ *  бросает «Cannot add a Scene with duplicate key» ещё до старта, и игрок
+ *  видит чёрный экран (см. tests/scene-keys.test.js). */
+const SCENES = [
+  BootScene, PreloaderScene, MenuScene,
+  ShopScene, GameScene, EndlessScene,
+  DailyScene, WheelScene, QuestsScene,
+  TalentsScene, BestiaryScene,
+  AchievementsScene, LeaderboardScene,
+  SettingsScene,
+];
+
 function bindAudioUnlock() {
   const unlock = () => { audio.unlock(); };
   window.addEventListener("pointerdown", unlock);
@@ -44,8 +56,22 @@ function bindFocusAudio(game) {
   SDK.onPlatform("resume", resume);
 }
 
-window.addEventListener("load", () => {
-  if (typeof Phaser === "undefined") return;
+/**
+ * Чёрный экран не должен быть «тихим»: любую ошибку запуска показываем игроку
+ * и пишем в консоль (нужно и для отладки, и для модерации Яндекс Игр).
+ */
+function showFatalError(err) {
+  console.error("Game boot failed:", err);
+  try {
+    const box = document.getElementById("boot-error");
+    if (!box) return;
+    box.textContent = `${box.textContent} (${err?.message || err})`;
+    box.style.display = "block";
+  } catch (e) { /* DOM недоступен — остаётся консоль */ }
+}
+
+function startGame() {
+  if (typeof Phaser === "undefined") return null;
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -59,15 +85,21 @@ window.addEventListener("load", () => {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: [
-      BootScene, PreloaderScene, MenuScene,
-      ShopScene, GameScene, EndlessScene,
-      DailyScene, WheelScene, QuestsScene,
-      TalentsScene, BestiaryScene,
-      AchievementsScene, LeaderboardScene,
-      SettingsScene,
-    ],
+    scene: SCENES,
   });
 
+  bindAudioUnlock();
   bindFocusAudio(game);
-});
+  window.game = game;
+  return game;
+}
+
+// Модуль выполняется как defer — до DOMContentLoaded, но страховка от «load уже
+// прошёл» убирает сценарий, при котором игра не стартует вообще (чёрный экран).
+if (document.readyState === "complete") {
+  try { startGame(); } catch (e) { showFatalError(e); }
+} else {
+  window.addEventListener("load", () => {
+    try { startGame(); } catch (e) { showFatalError(e); }
+  });
+}

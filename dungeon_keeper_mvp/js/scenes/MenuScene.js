@@ -63,7 +63,9 @@ export class MenuScene extends Phaser.Scene {
     // Статистика
     const d = saveManager.data;
     const chapter = getChapterForWave(d.wave);
-    this.add.text(270, 256, [
+    // Блок из 4 строк центрируется по y: ставим его ниже подсказки об управлении
+    // (иначе первая строка блока наезжает на неё) и выше первой кнопки.
+    this.add.text(270, 276, [
       `📜 ${t(chapter.titleKey)}`,
       `${t("menu_wave")}: ${d.wave}   ${t("menu_maxWave")}: ${d.stats?.maxWave || 0}`,
       `🪙 ${d.gold}   💀 ${d.souls}   💎 ${d.darkCrystals}   🔮 ${d.essence}`,
@@ -106,10 +108,12 @@ export class MenuScene extends Phaser.Scene {
         : { color: 0x2d3b5c, hoverColor: 0x405a80, stroke: 0x7799cc, textSize: "14px" });
     if (questReady > 0) this._badge(questBtn.bg.x + 100, questBtn.bg.y - 14);
 
-    createButton(this, 165, btnY, 125, 42, t("menu_talents"),
+    // Две кнопки делят строку (и весь столбец 260px) пополам с зазором 10px,
+    // не выходя за границы столбца: центры 202.5 и 337.5, ширина 125.
+    createButton(this, 202.5, btnY, 125, 42, t("menu_talents"),
       () => this.scene.start("TalentsScene", { returnTo: "MenuScene" }),
       { color: 0x3b2d5e, hoverColor: 0x5a40a0, stroke: 0xb388ff, textSize: "13px" });
-    createButton(this, 375, btnY, 125, 42, t("menu_bestiary"),
+    createButton(this, 337.5, btnY, 125, 42, t("menu_bestiary"),
       () => this.scene.start("BestiaryScene", { returnTo: "MenuScene" }),
       { color: 0x1f4444, hoverColor: 0x2d6666, stroke: 0x66dddd, textSize: "13px" });
     btnY += 47;

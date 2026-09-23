@@ -75,7 +75,7 @@ export function validateSave(raw) {
       if (typeof id === "string" && known.has(id) && !d.seenChapters.includes(id)) d.seenChapters.push(id);
     }
   }
-  // Доска: комбо «ловушка + монстр» на клетке, дракон 2×2 — единые правила в config.
+  // Доска: один юнит на клетку, дракон 2×2 — единые правила в config (validateBoard).
   d.board = validateBoard(raw.board);
   // Derived fields are recalculated below and must never be trusted from storage.
   return d;

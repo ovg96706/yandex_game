@@ -16,6 +16,15 @@ globalThis.Phaser = {
   Game: class Game {},
 };
 globalThis.window = globalThis.window || { addEventListener: () => {} };
+// main.js на верхнем уровне читает document.readyState и вешает обработчики —
+// даём минимальный DOM-стаб, чтобы модуль оставался импортируемым вне браузера.
+globalThis.document = globalThis.document || {
+  readyState: "loading", // не запускаем Phaser.Game на импорте модуля
+  hidden: false,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  getElementById: () => null,
+};
 
 const jsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "dungeon_keeper_mvp", "js");
 const files = [];
