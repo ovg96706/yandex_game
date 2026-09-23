@@ -210,3 +210,113 @@ test("combat: paladin shield blocks only trap effects, never monster attacks", (
   assert.equal(scene.damageHero(paladin, 50, false, "trap"), true); // четвёртая ловушка пробивает
   assert.equal(paladin.hp, 850);
 });
+
+// ---------- Ловушки работают строго по описанию ----------
+// Клетка (row, col): x = 110 + col*64 .. +64, y = 155 + row*64 .. +64; центр — +32.
+const cx = (col) => 110 + col * 64 + 32;
+const cy = (row) => 155 + row * 64 + 32;
+const mkTrapHero = (x, y, extra = {}) => ({
+  dead: false, disableTraps: false, isBoss: false, weaknessTool: null,
+  hp: 100000, maxHp: 100000, shieldHits: 0, speedMultiplier: 1, slowUntil: 0,
+  burnDPS: 0, burnEndTime: 0, poisonDPS: 0, poisonEndTime: 0,
+  container: { x, y }, graphic: mkObj(),
+  typeDef: { id: "peasant", goldReward: 4, soulReward: 2 }, ...extra,
+});
+
+for (const type of ["spikes", "fire_tile", "ice_wall"]) {
+  test(`traps: ${type} hits only heroes that stepped on its tile`, () => {
+    const scene = makeScene();
+    scene.spawnBoardPiece({ row: 3, col: 2, type, level: 1 }, false);
+    const neighbour = mkTrapHero(cx(2), cy(2));  // соседняя клетка сверху — в зоне старой «дальности»
+    const side = mkTrapHero(cx(3), cy(3));       // соседняя клетка сбоку
+    scene.heroes.push(neighbour, side);
+    for (let i = 0; i < 20; i++) scene.processTraps(1000 + i * 200, 200);
+    assert.equal(neighbour.hp, 100000, "не бьёт героя на соседней клетке");
+    assert.equal(side.hp, 100000);
+    assert.equal(neighbour.slowUntil, 0);
+    assert.equal(neighbour.burnDPS, 0);
+
+    const onTile = mkTrapHero(cx(2), cy(3));
+    scene.heroes.push(onTile);
+    scene.processTraps(6000, 16);
+    assert.ok(onTile.hp < 100000, "наступившему — урон сразу");
+    if (type === "ice_wall") assert.equal(onTile.slowUntil, 6000 + 3000, "лёд замедляет на 3 секунды");
+    if (type === "fire_tile") assert.ok(onTile.burnDPS > 0 && onTile.burnEndTime > 6000, "огонь поджигает");
+  });
+}
+
+test("traps: step traps hit every hero entering the tile, not only one per cooldown", () => {
+  const scene = makeScene();
+  scene.spawnBoardPiece({ row: 3, col: 2, type: "spikes", level: 1 }, false);
+  const a = mkTrapHero(cx(2), cy(3)), b = mkTrapHero(cx(2) + 5, cy(3) + 5);
+  scene.heroes.push(a);
+  scene.processTraps(1000, 16);
+  scene.heroes.push(b); // второй вошёл сразу после — кулдаун первого его не спасает
+  scene.processTraps(1016, 16);
+  assert.ok(a.hp < 100000 && b.hp < 100000);
+});
+
+test("traps: poison cloud damages the whole 3×3 area and nothing outside it", () => {
+  const scene = makeScene();
+  scene.spawnBoardPiece({ row: 3, col: 2, type: "poison", level: 1 }, false);
+  const inside = [[2, 1], [2, 3], [4, 1], [4, 3], [3, 2]].map(([r, c]) => mkTrapHero(cx(c), cy(r)));
+  const outside = [[1, 2], [5, 2], [3, 0], [3, 4]].map(([r, c]) => mkTrapHero(cx(c), cy(r)));
+  scene.heroes.push(...inside, ...outside);
+  scene.processTraps(1000, 16);
+  for (const h of inside) { assert.ok(h.hp < 100000, "внутри 3×3 — урон"); assert.ok(h.poisonDPS > 0); }
+  for (const h of outside) assert.equal(h.hp, 100000, "за пределами 3×3 — не задевает");
+});
+
+test("traps: tesla lightning fires only when stepped on and chains through exactly 3 heroes", () => {
+  const scene = makeScene();
+  scene.spawnBoardPiece({ row: 3, col: 2, type: "lightning", level: 5 }, false); // уровень не увеличивает цепь
+  const near = mkTrapHero(cx(2), cy(2)); // рядом, но не на клетке
+  scene.heroes.push(near);
+  scene.processTraps(1000, 5000);
+  assert.equal(near.hp, 100000, "никто не наступил — молния молчит");
+
+  const stepper = mkTrapHero(cx(2), cy(3));
+  const others = [mkTrapHero(cx(1), cy(3)), mkTrapHero(cx(3), cy(3)), mkTrapHero(cx(1), cy(2))];
+  scene.heroes.push(stepper, ...others);
+  scene.processTraps(2000, 16);
+  const hit = [near, stepper, ...others].filter((h) => h.hp < 100000);
+  assert.equal(hit.length, 3, "цепь ровно по 3 героям");
+  assert.ok(stepper.hp < 100000, "первым бьёт наступившего");
+});
+
+test("traps: teleport sends back only the hero who stepped on it, once", () => {
+  const scene = makeScene();
+  scene.spawnBoardPiece({ row: 6, col: 2, type: "teleport", level: 1 }, false);
+  const near = mkTrapHero(cx(2), cy(5));
+  scene.heroes.push(near);
+  scene.processTraps(1000, 16);
+  assert.equal(near.container.y, cy(5), "не на клетке — не телепортирует");
+
+  const stepper = mkTrapHero(cx(2), cy(6));
+  scene.heroes.push(stepper);
+  scene.processTraps(1016, 16);
+  assert.ok(stepper.container.y < cy(6), "наступившего вернуло назад");
+  const back = stepper.container.y;
+  stepper.container.y = cy(6); // дошёл до телепорта снова
+  scene.processTraps(99999, 99999);
+  assert.equal(stepper.container.y, cy(6), "один и тот же герой телепортируется один раз");
+  assert.ok(back >= 155);
+});
+
+test("traps: black hole pulls heroes towards itself, damages only those caught in it", () => {
+  const scene = makeScene();
+  scene.spawnBoardPiece({ row: 4, col: 2, type: "blackhole", level: 1 }, false);
+  const pulled = mkTrapHero(cx(1), cy(3));
+  const far = mkTrapHero(cx(2), cy(0)); // вне радиуса притяжения
+  scene.heroes.push(pulled, far);
+  scene.processTraps(1000, 16);
+  assert.equal(pulled.hp, 100000, "на расстоянии дыра не ранит");
+  assert.ok(pulled.container.x > cx(1), "героя тянет к дыре");
+  assert.equal(far.container.x, cx(2));
+  for (let i = 0; i < 100; i++) scene.processTraps(1016 + i * 16, 16);
+  assert.equal(pulled.container.x, cx(2), "стянут в колонку дыры");
+  pulled.container.y = cy(4); // дошёл до клетки дыры
+  scene.processTraps(9000, 5000);
+  assert.ok(pulled.hp < 100000, "попавший в дыру получает урон");
+  assert.equal(far.hp, 100000);
+});

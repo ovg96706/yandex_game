@@ -3,7 +3,7 @@ import {
   getWaveEnemyCount, getBaseHeroHP, getBaseHeroSpeed, getWaveBonus,
   getToolCost, isToolUnlocked, pickHeroType, getBossForWave, getHeroReward,
   toolLabel, toolDesc, heroLabel,
-  computeDamage, getTrapCooldown, getMonsterCooldown, getToolRange,
+  computeDamage, getTrapCooldown, getMonsterCooldown, getToolRange, getTrapReach,
   getToolFootprint, isFootprintInBounds, getMonsterMaxHP, getHeroAttackDamage,
   getBurnEffect, getBlockDuration, getReviveHP,
   getChapterForWave,
@@ -723,176 +723,210 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // ============================
+  // ЛОВУШКИ — строго по описанию из дизайн-документа, без «стрельбы» на дистанцию:
+  //  • Шипы / Огненная плитка / Ледяная стена — только по героям, наступившим на клетку
+  //    (каждый герой получает удар сразу при входе и повторно раз в кулдаун, пока стоит);
+  //  • Молния Тесла — срабатывает, когда на клетку наступили, и бьёт цепочкой по 3 героям;
+  //  • Телепорт — наступившего героя возвращает назад (один раз на героя);
+  //  • Ядовитое облако — AoE по области 3×3 вокруг своей клетки;
+  //  • Чёрная дыра — притягивает героев к себе, урон — только тем, кто в неё попал.
+  // ============================
+
+  /** Прямоугольник клетки (row, col), расширенный на `cells` клеток во все стороны. */
+  _cellRect(row, col, cells = 0) {
+    const g = GAME_CONFIG.grid;
+    return {
+      x1: g.offsetX + (col - cells) * g.cell, y1: g.offsetY + (row - cells) * g.cell,
+      x2: g.offsetX + (col + cells + 1) * g.cell, y2: g.offsetY + (row + cells + 1) * g.cell,
+    };
+  }
+
+  /** Живые герои внутри прямоугольника, на которых действуют ловушки. */
+  _trapTargetsIn(rect) {
+    const out = [];
+    for (const h of this.heroes) {
+      if (h.dead || h.disableTraps) continue;
+      const { x, y } = h.container;
+      if (x < rect.x1 || x >= rect.x2 || y < rect.y1 || y >= rect.y2) continue;
+      out.push(h);
+    }
+    return out;
+  }
+
+  /** Герои, стоящие на клетке ловушки (наступили на неё). */
+  _heroesOnTrap(piece) { return this._trapTargetsIn(this._cellRect(piece.row, piece.col)); }
+
   processTraps(time, delta) {
-    const cellSize = GAME_CONFIG.grid.cell;
     for (const piece of this.piecesOfKind("trap")) {
-      piece.cooldown -= delta;
-      if (piece.cooldown > 0) continue;
       const def = TOOL_DEFS[piece.type];
-      const pPos = this.piecePos(piece);
-
-      // Шипы (stepOnly): не стреляют и не бьют по площади — ранят только героев,
-      // стоящих на своей клетке, и делают это периодически (каждый кулдаун),
-      // пока герой не уйдёт с клетки или не погибнет.
-      if (def.stepOnly) {
-        const g = GAME_CONFIG.grid;
-        const x1 = g.offsetX + piece.col * g.cell, y1 = g.offsetY + piece.row * g.cell;
-        const x2 = x1 + g.cell, y2 = y1 + g.cell;
-        let hitAny = false;
-        for (const h of this.heroes) {
-          if (h.dead || h.disableTraps) continue;
-          if (h.container.x < x1 || h.container.x > x2 || h.container.y < y1 || h.container.y > y2) continue;
-          const isBoss = h.isBoss || false;
-          const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, h.weaknessTool);
-          this.damageHero(h, dmg, isCrit);
-          hitAny = true;
-        }
-        if (!hitAny) continue; // никого на клетке — шипы молчат и не тратят кулдаун впустую
-        piece.cooldown = getTrapCooldown(def, saveManager.data);
-        this.pulsePiece(piece);
-        audio.trapHit();
-        continue;
+      piece.cooldown -= delta;
+      switch (def.trigger) {
+        case "area": this._trapArea(piece, def, time); break;
+        case "pull": this._trapPull(piece, def, time, delta); break;
+        case "chain": this._trapChain(piece, def); break;
+        case "teleport": this._trapTeleport(piece, def); break;
+        default: this._trapStep(piece, def, time); break; // "step": шипы, огонь, лёд
       }
-
-      if (def.id === "blackhole") {
-        const pullR2 = ((def.pullRadius || 2.5) * cellSize) ** 2;
-        const closeR2 = (cellSize * 0.7) ** 2;
-        let anyPulled = false;
-        for (const h of this.heroes) {
-          if (h.dead || h.disableTraps) continue;
-          const d2 = distSq(h.container.x, h.container.y, pPos.x, pPos.y);
-          if (d2 > pullR2) continue;
-          if (d2 > 4) {
-            const angle = Math.atan2(pPos.y - h.container.y, pPos.x - h.container.x);
-            h.container.x += Math.cos(angle) * 12;
-            h.container.y += Math.sin(angle) * 8;
-            anyPulled = true;
-          }
-          if (d2 < closeR2) {
-            const isBoss = h.isBoss || false;
-            const { damage: aoeDmg, isCrit } = computeDamage({ damage: def.aoeDamage || 15, kind: "trap" }, piece.level, saveManager.data, isBoss, h.weaknessTool);
-            this.damageHero(h, aoeDmg, isCrit);
-            anyPulled = true;
-          }
-        }
-        if (anyPulled) { spawnBlackholeEffect(this, pPos.x, pPos.y); audio.trapHit(); }
-        piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
-      }
-
-      if (def.id === "teleport") {
-        const target = this._findHeroForTrap(piece, true);
-        if (!target) continue;
-        // Щит паладина блокирует и телепорт (это тоже эффект ловушки).
-        if (!this._shieldBlocks(target)) {
-          const rows = (def.teleportRows || 5) + piece.level;
-          target.container.y = Math.max(GAME_CONFIG.grid.offsetY, target.container.y - rows * cellSize);
-          spawnTeleportEffect(this, pPos.x, pPos.y);
-          spawnTeleportEffect(this, target.container.x, target.container.y);
-          floatText(this, pPos.x, pPos.y - 20, t("game_teleport"), "#cc88ff", 14);
-        }
-        audio.trapHit();
-        piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
-      }
-
-      if (def.id === "lightning") {
-        const target = this._findHeroForTrap(piece, true);
-        if (!target) continue;
-        const isBoss = target.isBoss || false;
-        const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
-        this.damageHero(target, dmg, isCrit);
-        const chainCount = (def.chainCount || 3) + Math.floor(piece.level / 2);
-        const chainR2 = ((def.chainRange || 2.5) * cellSize) ** 2;
-        let lastX = target.container.x, lastY = target.container.y;
-        const hit = new Set([target]);
-        for (let c = 0; c < chainCount; c++) {
-          let next = null, bestD2 = Infinity;
-          for (const h of this.heroes) {
-            if (h.dead || hit.has(h)) continue;
-            const d2 = distSq(h.container.x, h.container.y, lastX, lastY);
-            if (d2 <= chainR2 && d2 < bestD2) { bestD2 = d2; next = h; }
-          }
-          if (!next) break;
-          hit.add(next);
-          spawnLightningChain(this, lastX, lastY, next.container.x, next.container.y);
-          this.damageHero(next, Math.floor(dmg * 0.7), isCrit);
-          lastX = next.container.x; lastY = next.container.y;
-        }
-        spawnLightningChain(this, pPos.x, pPos.y, target.container.x, target.container.y);
-        audio.trapHit();
-        piece.cooldown = getTrapCooldown(def, saveManager.data); this.pulsePiece(piece); continue;
-      }
-
-      if (def.id === "poison") {
-        // Ядовитое облако: AoE-урон по области 3×3 клетки вокруг ловушки —
-        // каждый тик кулдауна задевает ВСЕХ героев в области и отравляет их.
-        const cells = def.aoeCells ?? 1;
-        const g = GAME_CONFIG.grid;
-        const x1 = g.offsetX + (piece.col - cells) * g.cell, y1 = g.offsetY + (piece.row - cells) * g.cell;
-        const x2 = g.offsetX + (piece.col + cells + 1) * g.cell, y2 = g.offsetY + (piece.row + cells + 1) * g.cell;
-        let hitAny = false;
-        for (const h of this.heroes) {
-          if (h.dead || h.disableTraps) continue;
-          if (h.container.x < x1 || h.container.x > x2 || h.container.y < y1 || h.container.y > y2) continue;
-          const isBoss = h.isBoss || false;
-          const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, h.weaknessTool);
-          // Яд накладывается, только если удар ловушки не заблокирован щитом.
-          if (this.damageHero(h, dmg, isCrit) && !h.dead) {
-            h.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
-            h.poisonEndTime = time + (def.poisonDuration || 5000);
-            h.poisonTimer = 0;
-          }
-          hitAny = true;
-        }
-        if (hitAny) {
-          spawnPoisonCloud(this, pPos.x, pPos.y);
-          audio.trapHit();
-          piece.cooldown = getTrapCooldown(def, saveManager.data);
-          this.pulsePiece(piece);
-        }
-        continue;
-      }
-
-      const target = this._findHeroForTrap(piece, true);
-      if (!target) continue;
-      const isBoss = target.isBoss || false;
-      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, isBoss, target.weaknessTool);
-      const applied = this.damageHero(target, dmg, isCrit);
-      if (applied && !target.dead && def.slowFactor) {
-        target.speedMultiplier = def.slowFactor;
-        target.slowUntil = time + (def.slowDuration || 2000) * (saveManager.data.slowBonus ?? 1);
-      }
-      if (applied && !target.dead) {
-        // Полная остановка — для инструментов с blockDuration (ледяная стена по спеке
-        // только замедляет на 3 секунды, поэтому blockDuration у неё убран).
-        const blockMs = getBlockDuration(def, piece.level);
-        if (blockMs) {
-          target.blockedUntil = Math.max(target.blockedUntil || 0, time + blockMs);
-          floatText(this, target.container.x, target.container.y - 40, t("game_frozen"), "#9fe8ff", 12);
-        }
-        // Огненная плитка поджигает: урон по времени после срабатывания.
-        const burn = getBurnEffect(def, piece.level, saveManager.data);
-        if (burn) {
-          target.burnDPS = Math.max(target.burnDPS || 0, burn.dps);
-          target.burnEndTime = Math.max(target.burnEndTime || 0, time + burn.duration);
-          target.burnTimer = 0;
-        }
-      }
-      piece.cooldown = getTrapCooldown(def, saveManager.data);
-      this.pulsePiece(piece);
-      audio.trapHit();
     }
   }
 
-  _findHeroForTrap(piece, respectImmunity = true) {
-    const def = TOOL_DEFS[piece.type], pos = this.piecePos(piece);
-    const range = getToolRange(def, saveManager.data) * GAME_CONFIG.grid.cell;
-    let target = null, best = Infinity;
-    for (const hero of this.heroes) {
-      if (hero.dead || (respectImmunity && hero.disableTraps)) continue;
-      const d = distSq(pos.x, pos.y, hero.container.x, hero.container.y);
-      if (d <= range * range && d < best) { target = hero; best = d; }
+  /**
+   * Шипы, огненная плитка, ледяная стена: бьют ТОЛЬКО наступивших на клетку.
+   * Кулдаун — на каждого героя отдельно: вошёл на клетку — сразу получил удар,
+   * стоит дальше — получает повторно раз в кулдаун. Никто не «проскакивает» мимо.
+   */
+  _trapStep(piece, def, time) {
+    const onCell = this._heroesOnTrap(piece);
+    if (!onCell.length) return;
+    if (!piece.hitTimes) piece.hitTimes = new WeakMap();
+    const cd = getTrapCooldown(def, saveManager.data);
+    let hitAny = false;
+    for (const h of onCell) {
+      const last = piece.hitTimes.get(h);
+      if (last !== undefined && time - last < cd) continue;
+      piece.hitTimes.set(h, time);
+      hitAny = true;
+      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, h.isBoss || false, h.weaknessTool);
+      const applied = this.damageHero(h, dmg, isCrit);
+      if (!applied || h.dead) continue;
+      // Ледяная стена: замедление на 3 секунды (без полной остановки).
+      if (def.slowFactor) {
+        h.speedMultiplier = def.slowFactor;
+        h.slowUntil = time + (def.slowDuration || 2000) * (saveManager.data.slowBonus ?? 1);
+      }
+      const blockMs = getBlockDuration(def, piece.level);
+      if (blockMs) {
+        h.blockedUntil = Math.max(h.blockedUntil || 0, time + blockMs);
+        floatText(this, h.container.x, h.container.y - 40, t("game_frozen"), "#9fe8ff", 12);
+      }
+      // Огненная плитка: поджигает — урон по времени.
+      const burn = getBurnEffect(def, piece.level, saveManager.data);
+      if (burn) {
+        h.burnDPS = Math.max(h.burnDPS || 0, burn.dps);
+        h.burnEndTime = Math.max(h.burnEndTime || 0, time + burn.duration);
+        h.burnTimer = 0;
+      }
     }
-    return target;
+    if (hitAny) { this.pulsePiece(piece); audio.trapHit(); }
+  }
+
+  /** Ядовитое облако: каждый тик задевает ВСЕХ героев в области 3×3 и отравляет их. */
+  _trapArea(piece, def, time) {
+    if (piece.cooldown > 0) return;
+    const targets = this._trapTargetsIn(this._cellRect(piece.row, piece.col, def.aoeCells ?? 1));
+    if (!targets.length) return; // облако не тратит заряд впустую
+    for (const h of targets) {
+      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, h.isBoss || false, h.weaknessTool);
+      // Яд накладывается, только если удар ловушки не заблокирован щитом.
+      if (this.damageHero(h, dmg, isCrit) && !h.dead) {
+        h.poisonDPS = Math.floor((def.poisonDPS || 8) * piece.level * (saveManager.data.poisonBonus ?? 1));
+        h.poisonEndTime = time + (def.poisonDuration || 5000);
+        h.poisonTimer = 0;
+      }
+    }
+    const pPos = this.piecePos(piece);
+    spawnPoisonCloud(this, pPos.x, pPos.y);
+    audio.trapHit();
+    piece.cooldown = getTrapCooldown(def, saveManager.data);
+    this.pulsePiece(piece);
+  }
+
+  /**
+   * Молния Тесла: срабатывает, когда герой наступает на клетку, и бьёт цепочкой
+   * ровно по chainCount (3) героям: наступивший + ближайшие к предыдущему звену.
+   */
+  _trapChain(piece, def) {
+    if (piece.cooldown > 0) return;
+    const onCell = this._heroesOnTrap(piece);
+    if (!onCell.length) return;
+    const pPos = this.piecePos(piece);
+    const first = onCell[0];
+    const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, first.isBoss || false, first.weaknessTool);
+    spawnLightningChain(this, pPos.x, pPos.y, first.container.x, first.container.y);
+    this.damageHero(first, dmg, isCrit);
+    const total = def.chainCount || 3;
+    const chainR2 = (getTrapReach(def.chainRange || 2.5, saveManager.data) * GAME_CONFIG.grid.cell) ** 2;
+    const hit = new Set([first]);
+    let lastX = first.container.x, lastY = first.container.y;
+    while (hit.size < total) {
+      let next = null, bestD2 = Infinity;
+      for (const h of this.heroes) {
+        if (h.dead || h.disableTraps || hit.has(h)) continue;
+        const d2 = distSq(h.container.x, h.container.y, lastX, lastY);
+        if (d2 <= chainR2 && d2 < bestD2) { bestD2 = d2; next = h; }
+      }
+      if (!next) break;
+      hit.add(next);
+      spawnLightningChain(this, lastX, lastY, next.container.x, next.container.y);
+      const { damage: cd, isCrit: cc } = computeDamage(def, piece.level, saveManager.data, next.isBoss || false, next.weaknessTool);
+      this.damageHero(next, Math.floor(cd * 0.7), cc);
+      lastX = next.container.x; lastY = next.container.y;
+    }
+    audio.trapHit();
+    piece.cooldown = getTrapCooldown(def, saveManager.data);
+    this.pulsePiece(piece);
+  }
+
+  /** Телепорт: наступившего героя возвращает назад. Каждого героя — один раз. */
+  _trapTeleport(piece, def) {
+    if (piece.cooldown > 0) return;
+    if (!piece.teleported) piece.teleported = new WeakSet();
+    const target = this._heroesOnTrap(piece).find((h) => !piece.teleported.has(h));
+    if (!target) return;
+    piece.teleported.add(target);
+    const cellSize = GAME_CONFIG.grid.cell;
+    const pPos = this.piecePos(piece);
+    // Щит паладина блокирует и телепорт (это тоже эффект ловушки).
+    if (!this._shieldBlocks(target)) {
+      const rows = (def.teleportRows || 5) + piece.level;
+      target.container.y = Math.max(GAME_CONFIG.grid.offsetY, target.container.y - rows * cellSize);
+      spawnTeleportEffect(this, pPos.x, pPos.y);
+      spawnTeleportEffect(this, target.container.x, target.container.y);
+      floatText(this, pPos.x, pPos.y - 20, t("game_teleport"), "#cc88ff", 14);
+    }
+    audio.trapHit();
+    piece.cooldown = getTrapCooldown(def, saveManager.data);
+    this.pulsePiece(piece);
+  }
+
+  /**
+   * Чёрная дыра: постоянно стягивает героев в радиусе к своей колонке (к себе),
+   * урон получают только те, кого уже затянуло на клетку дыры.
+   * Вертикально не тянет — иначе медленный босс мог бы «зависнуть» навсегда.
+   */
+  _trapPull(piece, def, time, delta) {
+    const cellSize = GAME_CONFIG.grid.cell;
+    const pPos = this.piecePos(piece);
+    const pullR2 = (getTrapReach(def.pullRadius || 2.5, saveManager.data) * cellSize) ** 2;
+    const step = (def.pullSpeed || 60) * delta / 1000;
+    let pulling = false;
+    for (const h of this.heroes) {
+      if (h.dead || h.disableTraps) continue;
+      if (h.container.y > pPos.y + cellSize / 2) continue; // уже прошёл мимо дыры
+      if (distSq(h.container.x, h.container.y, pPos.x, pPos.y) > pullR2) continue;
+      const dx = pPos.x - h.container.x;
+      if (Math.abs(dx) < 0.5) continue;
+      h.container.x += Math.sign(dx) * Math.min(Math.abs(dx), step);
+      h.col = Math.floor((h.container.x - GAME_CONFIG.grid.offsetX) / cellSize);
+      pulling = true;
+    }
+    if (pulling && !piece._pullFx) {
+      piece._pullFx = true;
+      spawnBlackholeEffect(this, pPos.x, pPos.y);
+      this.time.delayedCall(600, () => { piece._pullFx = false; });
+    }
+    if (piece.cooldown > 0) return;
+    const inside = this._heroesOnTrap(piece);
+    if (!inside.length) return;
+    for (const h of inside) {
+      const { damage: dmg, isCrit } = computeDamage(def, piece.level, saveManager.data, h.isBoss || false, h.weaknessTool);
+      this.damageHero(h, dmg, isCrit);
+    }
+    spawnBlackholeEffect(this, pPos.x, pPos.y);
+    audio.trapHit();
+    piece.cooldown = getTrapCooldown(def, saveManager.data);
+    this.pulsePiece(piece);
   }
 
   processMonsters(time, delta) {

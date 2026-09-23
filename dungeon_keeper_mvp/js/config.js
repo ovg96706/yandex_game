@@ -14,13 +14,13 @@ import { t } from "./i18n.js";
 // ============================
 
 export const TOOL_DEFS = {
-  spikes: { id: "spikes", labelKey: "unit_spikes", descKey: "unit_spikes_desc", kind: "trap", label: "Шипы", icon: "▲", cost: 30, damage: 25, cooldown: 700, color: 0xb0b0b0, mergeColors: [0xb0b0b0, 0xc8c8c8, 0xe0d060, 0xff9933, 0xff3333], description: "Урон наступившим на клетку, периодически.", stepOnly: true },
-  fire_tile: { id: "fire_tile", labelKey: "unit_fire_tile", descKey: "unit_fire_tile_desc", kind: "trap", label: "Огонь", icon: "🔥", cost: 55, damage: 35, cooldown: 850, color: 0xff6b35, mergeColors: [0xff6b35, 0xff8844, 0xffaa22, 0xff5500, 0xff0000], description: "Высокий урон, поджигает.", unlockWave: 5, burnDPS: 7, burnDuration: 4000 },
-  ice_wall: { id: "ice_wall", labelKey: "unit_ice_wall", descKey: "unit_ice_wall_desc", kind: "trap", label: "Лёд", icon: "❄", cost: 50, damage: 12, cooldown: 1200, slowFactor: 0.4, slowDuration: 3000, color: 0x74b9ff, mergeColors: [0x74b9ff, 0x55ccff, 0x33ddff, 0x00eeff, 0x00ffff], description: "Замедляет на 60% на 3 секунды.", unlockWave: 10 },
-  poison: { id: "poison", labelKey: "unit_poison", descKey: "unit_poison_desc", kind: "trap", label: "Яд", icon: "☠", cost: 65, damage: 8, cooldown: 1500, color: 0x6c5ce7, mergeColors: [0x6c5ce7, 0x7d6cf0, 0x9b59b6, 0xbe2edd, 0xff00ff], description: "Облако 3×3: урон по области и отравление.", unlockWave: 20, aoeCells: 1, poisonDPS: 8, poisonDuration: 5000 },
-  lightning: { id: "lightning", labelKey: "unit_lightning", descKey: "unit_lightning_desc", kind: "trap", label: "Молния", icon: "⚡", cost: 85, damage: 50, cooldown: 2000, color: 0xf9ca24, mergeColors: [0xf9ca24, 0xfbda52, 0xfdeb71, 0xffff00, 0xffffff], description: "Цепная молния (3 цели).", unlockWave: 35, chainCount: 3, chainRange: 2.5 },
-  teleport: { id: "teleport", labelKey: "unit_teleport", descKey: "unit_teleport_desc", kind: "trap", label: "Телепорт", icon: "🌀", cost: 100, damage: 0, cooldown: 4000, color: 0xa855f7, mergeColors: [0xa855f7, 0xb86ef8, 0xc884f9, 0xd89afa, 0xe8b0fb], description: "Отбрасывает наверх.", unlockWave: 50, teleportRows: 5 },
-  blackhole: { id: "blackhole", labelKey: "unit_blackhole", descKey: "unit_blackhole_desc", kind: "trap", label: "Чёрн. дыра", icon: "🕳️", cost: 150, damage: 20, cooldown: 3000, color: 0x2d1b69, mergeColors: [0x2d1b69, 0x3d2b79, 0x4d3b89, 0x5d4b99, 0x7d6bb9], description: "Притягивает + AoE.", unlockWave: 70, pullRadius: 2.5, aoeDamage: 15 },
+  spikes: { id: "spikes", labelKey: "unit_spikes", descKey: "unit_spikes_desc", kind: "trap", label: "Шипы", icon: "▲", cost: 30, damage: 25, cooldown: 700, color: 0xb0b0b0, mergeColors: [0xb0b0b0, 0xc8c8c8, 0xe0d060, 0xff9933, 0xff3333], description: "Урон наступившим на клетку, периодически.", trigger: "step", stepOnly: true },
+  fire_tile: { id: "fire_tile", labelKey: "unit_fire_tile", descKey: "unit_fire_tile_desc", kind: "trap", label: "Огонь", icon: "🔥", cost: 55, damage: 35, cooldown: 850, color: 0xff6b35, mergeColors: [0xff6b35, 0xff8844, 0xffaa22, 0xff5500, 0xff0000], description: "Высокий урон, поджигает.", unlockWave: 5, trigger: "step", stepOnly: true, burnDPS: 7, burnDuration: 4000 },
+  ice_wall: { id: "ice_wall", labelKey: "unit_ice_wall", descKey: "unit_ice_wall_desc", kind: "trap", label: "Лёд", icon: "❄", cost: 50, damage: 12, cooldown: 1200, slowFactor: 0.4, slowDuration: 3000, color: 0x74b9ff, mergeColors: [0x74b9ff, 0x55ccff, 0x33ddff, 0x00eeff, 0x00ffff], description: "Замедляет на 60% на 3 секунды.", unlockWave: 10, trigger: "step", stepOnly: true },
+  poison: { id: "poison", labelKey: "unit_poison", descKey: "unit_poison_desc", kind: "trap", label: "Яд", icon: "☠", cost: 65, damage: 8, cooldown: 1500, color: 0x6c5ce7, mergeColors: [0x6c5ce7, 0x7d6cf0, 0x9b59b6, 0xbe2edd, 0xff00ff], description: "Облако 3×3: урон по области и отравление.", unlockWave: 20, trigger: "area", aoeCells: 1, poisonDPS: 8, poisonDuration: 5000 },
+  lightning: { id: "lightning", labelKey: "unit_lightning", descKey: "unit_lightning_desc", kind: "trap", label: "Молния", icon: "⚡", cost: 85, damage: 50, cooldown: 2000, color: 0xf9ca24, mergeColors: [0xf9ca24, 0xfbda52, 0xfdeb71, 0xffff00, 0xffffff], description: "Цепная молния по 3 героям, когда на неё наступают.", unlockWave: 35, trigger: "chain", chainCount: 3, chainRange: 2.5 },
+  teleport: { id: "teleport", labelKey: "unit_teleport", descKey: "unit_teleport_desc", kind: "trap", label: "Телепорт", icon: "🌀", cost: 100, damage: 0, cooldown: 4000, color: 0xa855f7, mergeColors: [0xa855f7, 0xb86ef8, 0xc884f9, 0xd89afa, 0xe8b0fb], description: "Возвращает наступившего героя назад.", unlockWave: 50, trigger: "teleport", teleportRows: 5 },
+  blackhole: { id: "blackhole", labelKey: "unit_blackhole", descKey: "unit_blackhole_desc", kind: "trap", label: "Чёрн. дыра", icon: "🕳️", cost: 150, damage: 20, cooldown: 3000, color: 0x2d1b69, mergeColors: [0x2d1b69, 0x3d2b79, 0x4d3b89, 0x5d4b99, 0x7d6bb9], description: "Притягивает героев к себе, ранит попавших в неё.", unlockWave: 70, trigger: "pull", pullRadius: 2.5, pullSpeed: 60 },
 
   slime: { id: "slime", labelKey: "unit_slime", descKey: "unit_slime_desc", kind: "monster", label: "Слайм", icon: "S", cost: 45, damage: 10, cooldown: 900, range: 2.2, monsterHP: 160, color: 0x57ffb8, mergeColors: [0x57ffb8, 0x44ff99, 0x33ff77, 0x22ff55, 0x00ff33], description: "Слабый, дешёвый, живучий." },
   skeleton: { id: "skeleton", labelKey: "unit_skeleton", descKey: "unit_skeleton_desc", kind: "monster", label: "Скелет", icon: "💀", cost: 70, damage: 30, cooldown: 1100, range: 1.8, monsterHP: 150, color: 0xe8dcc8, mergeColors: [0xe8dcc8, 0xf0e8d8, 0xf8f0e0, 0xffcc66, 0xff6600], description: "Сильный ближний бой.", unlockWave: 8 },
@@ -645,12 +645,28 @@ export function getMonsterCooldown(toolDef, save) {
 
 /** Модифицированная дальность ловушки/монстра */
 export function getToolRange(toolDef, save) {
-  // Шипы и прочие stepOnly-ловушки не стреляют: работают только по своей клетке.
-  if (toolDef.stepOnly) return 0;
-  const bonus = toolDef.kind === "trap"
-    ? (save.trapRangeBonus ?? 1)
-    : (save.monsterRangeBonus ?? 1);
-  return (toolDef.range || 2) * bonus;
+  // Ловушки не стреляют на дистанцию: каждая срабатывает строго по своему описанию
+  // (наступили на клетку / область 3×3 / цепь от наступившего / притяжение) — см. trigger.
+  if (toolDef.kind === "trap" || toolDef.stepOnly) return 0;
+  return (toolDef.range || 2) * (save.monsterRangeBonus ?? 1);
+}
+
+/**
+ * Способ срабатывания ловушки (по дизайн-документу):
+ *  "step"     — шипы, огненная плитка, ледяная стена: только по наступившим на клетку;
+ *  "area"     — ядовитое облако: урон по области 3×3;
+ *  "chain"    — молния Тесла: срабатывает от наступившего, цепь по 3 героям;
+ *  "teleport" — телепорт: возвращает наступившего героя назад;
+ *  "pull"     — чёрная дыра: притягивает героев к себе.
+ */
+export function getTrapTrigger(toolDef) {
+  if (toolDef?.kind !== "trap") return null;
+  return toolDef.trigger || "step";
+}
+
+/** Радиус цепи молнии / притяжения чёрной дыры (в клетках) с учётом улучшения «Дальность ловушек». */
+export function getTrapReach(baseCells, save) {
+  return baseCells * (save?.trapRangeBonus ?? 1);
 }
 
 // ============================
