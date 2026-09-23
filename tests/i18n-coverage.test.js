@@ -7,7 +7,7 @@ import { i18n } from "../dungeon_keeper_mvp/js/i18n.js";
 import {
   ACHIEVEMENTS, TOOL_DEFS, HERO_TYPES, TALENTS, TALENT_BRANCHES,
   QUEST_KIND_META, SHOP_UPGRADES, UPGRADE_CATEGORIES, ACHIEVEMENT_CATEGORIES,
-  CHAPTERS,
+  CHAPTERS, WHEEL_SECTORS,
 } from "../dungeon_keeper_mvp/js/config.js";
 
 const gameDir = join(dirname(fileURLToPath(import.meta.url)), "..", "dungeon_keeper_mvp", "js");
@@ -43,8 +43,39 @@ function collectConfigKeys() {
   for (const c of Object.values(UPGRADE_CATEGORIES)) add(c.labelKey);
   for (const c of Object.values(ACHIEVEMENT_CATEGORIES)) add(c.labelKey);
   for (const c of CHAPTERS) { add(c.titleKey); add(c.storyKey); }
+  for (const sctr of WHEEL_SECTORS) add(sctr.labelKey);
   return keys;
 }
+
+// Сектора колеса рисуются по label/labelKey напрямую — любой сектор с кириллицей
+// в label без labelKey всплывёт в EN/TR-интерфейсе (п. 2.14 / 8.2.3).
+test("wheel sectors with non-neutral labels are localized through labelKey", () => {
+  for (const sctr of WHEEL_SECTORS) {
+    if (/[А-Яа-яЁё]/.test(sctr.label)) assert.ok(sctr.labelKey, `sector ${sctr.id} needs labelKey`);
+  }
+});
+
+// Страховка от регресса: в коде сцен не должно оставаться захардкоженной кириллицы
+// (кроме комментариев и console.*) — всё видимое игроку идёт через t().
+test("no hard-coded Cyrillic UI strings outside i18n.js", () => {
+  const offenders = [];
+  const strLit = /(["'`])(?:(?!\1)[^\\\n]|\\.)*\1/g;
+  for (const dir of [gameDir, join(gameDir, "scenes")]) {
+    for (const name of readdirSync(dir)) {
+      if (!name.endsWith(".js") || name === "i18n.js" || name === "config.js") continue;
+      const lines = readFileSync(join(dir, name), "utf8").split("\n");
+      lines.forEach((line, i) => {
+        const s = line.trim();
+        if (s.startsWith("//") || s.startsWith("*") || s.startsWith("/*") || /console\.(warn|log|error|info)/.test(s)) return;
+        const code = s.split(/\s\/\//)[0];
+        for (const m of code.matchAll(strLit)) {
+          if (/[А-Яа-яЁё]/.test(m[0])) { offenders.push(`${name}:${i + 1}: ${m[0]}`); break; }
+        }
+      });
+    }
+  }
+  assert.deepEqual(offenders, []);
+});
 
 test("every statically used i18n key exists in ru, en and tr", () => {
   const staticKeys = collectStaticKeys();

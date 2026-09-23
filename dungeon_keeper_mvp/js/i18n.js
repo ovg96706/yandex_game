@@ -5,6 +5,11 @@
 
 const LOCALES = {
   ru: {
+    // ===== ЗАГРУЗКА (п. 2.14: текст на старте — на языке платформы) =====
+    boot_title: "Хранитель Подземелья",
+    boot_init: "Инициализация...",
+    boot_loading: "Загрузка подземелья",
+
     // ===== МЕНЮ =====
     menu_title: "ХРАНИТЕЛЬ\nПОДЗЕМЕЛЬЯ",
     menu_subtitle: "Защищай кристалл от волн героев",
@@ -58,6 +63,7 @@ const LOCALES = {
     game_tool_info: "{0} — {1} | {2}🪙 | Урон: {3}",
     game_not_unlocked: "Не открыто",
     game_not_enough_gold: "Мало золота",
+    game_crit: "КРИТ!",
     game_cell_taken: "Занято",
     game_max_level: "Макс. уровень",
     game_diff_types: "Разные типы",
@@ -135,6 +141,7 @@ const LOCALES = {
     wheel_ad_spin: "КРУТИТЬ\nЗА 🎬",
     wheel_total_spins: "Всего прокруток: {0}",
     wheel_jackpot: "🎁 ДЖЕКПОТ! 🎁",
+    wheel_sector_jackpot: "🎁 ДЖЕКПОТ",
     wheel_reward: "Награда!",
 
     // ===== ДОСТИЖЕНИЯ =====
@@ -216,6 +223,7 @@ const LOCALES = {
     lb_wave: "Волна {0}",
     lb_you: "Ты",
     lb_player_default: "Игрок",
+    lb_guest_name: "Хранитель {0}",
 
     // ===== ЮНИТЫ =====
     // Ловушки
@@ -505,6 +513,11 @@ const LOCALES = {
   },
 
   en: {
+    // ===== BOOT =====
+    boot_title: "Dungeon Keeper",
+    boot_init: "Initializing...",
+    boot_loading: "Loading the dungeon",
+
     menu_title: "DUNGEON\nKEEPER",
     menu_subtitle: "Defend the crystal from waves of heroes",
     menu_wave: "Wave",
@@ -555,6 +568,7 @@ const LOCALES = {
     game_tool_info: "{0} — {1} | {2}🪙 | Damage: {3}",
     game_not_unlocked: "Locked",
     game_not_enough_gold: "Not enough gold",
+    game_crit: "CRIT!",
     game_cell_taken: "Occupied",
     game_max_level: "Max level",
     game_diff_types: "Different types",
@@ -629,6 +643,7 @@ const LOCALES = {
     wheel_ad_spin: "SPIN\nFOR 🎬",
     wheel_total_spins: "Total spins: {0}",
     wheel_jackpot: "🎁 JACKPOT! 🎁",
+    wheel_sector_jackpot: "🎁 JACKPOT",
     wheel_reward: "Reward!",
 
     ach_title: "🏆 ACHIEVEMENTS",
@@ -707,6 +722,7 @@ const LOCALES = {
     lb_wave: "Wave {0}",
     lb_you: "You",
     lb_player_default: "Player",
+    lb_guest_name: "Keeper {0}",
 
     // Юниты
     unit_spikes: "Spikes",
@@ -986,6 +1002,11 @@ const LOCALES = {
   },
 
   tr: {
+    // ===== YÜKLEME =====
+    boot_title: "Zindan Bekçisi",
+    boot_init: "Başlatılıyor...",
+    boot_loading: "Zindan yükleniyor",
+
     menu_title: "ZİNDAN\nBEKÇİSİ",
     menu_subtitle: "Kristali kahraman dalgalarından koru",
     menu_wave: "Dalga",
@@ -1036,6 +1057,7 @@ const LOCALES = {
     game_tool_info: "{0} — {1} | {2}🪙 | Hasar: {3}",
     game_not_unlocked: "Kilitli",
     game_not_enough_gold: "Yetersiz altın",
+    game_crit: "KRİTİK!",
     game_cell_taken: "Dolu",
     game_max_level: "Maks. seviye",
     game_diff_types: "Farklı türler",
@@ -1110,6 +1132,7 @@ const LOCALES = {
     wheel_ad_spin: "🎬 İLE\nÇEVİR",
     wheel_total_spins: "Toplam dönüş: {0}",
     wheel_jackpot: "🎁 İKRAMİYE! 🎁",
+    wheel_sector_jackpot: "🎁 İKRAMİYE",
     wheel_reward: "Ödül!",
 
     ach_title: "🏆 BAŞARIMLAR",
@@ -1188,6 +1211,7 @@ const LOCALES = {
     lb_wave: "Dalga {0}",
     lb_you: "Sen",
     lb_player_default: "Oyuncu",
+    lb_guest_name: "Bekçi {0}",
 
     unit_spikes: "Dikenler",
     unit_spikes_desc: "Basınca hasar.",
@@ -1472,20 +1496,29 @@ export const SUPPORTED_LANGUAGES = [
   { id: "tr", label: "Türkçe", flag: "🇹🇷" },
 ];
 
-/** Языки каталога Яндекс Игр → ближайшая встроенная локаль (п. 2.10 / 2.14). */
-const LANG_ALIASES = {
+/**
+ * Языки каталога Яндекс Игр → ближайшая встроенная локаль (п. 2.14).
+ * Резервный набор по документации «Языки и домены»: ru для be/kk/uk/uz, en — для остальных.
+ * ky/tg добавлены сверх списка Яндекса (аудитории yandex.tj и Киргизии читают по-русски).
+ */
+export const LANG_ALIASES = Object.freeze({
   ru: "ru", be: "ru", kk: "ru", uk: "ru", uz: "ru", ky: "ru", tg: "ru",
   tr: "tr",
   en: "en",
-};
+});
+
+/** Язык, если платформа ничего не сообщила (SDK нет / init упал). */
+export const DEFAULT_LANGUAGE = "ru";
+/** Резервный язык для всех кодов, которых нет в LANG_ALIASES/LOCALES. */
+export const FALLBACK_LANGUAGE = "en";
 
 /** Приводит код SDK (ru, en-US, kk, …) к ru / en / tr. */
 export function resolveLanguage(raw) {
-  if (!raw) return "ru";
+  if (!raw) return DEFAULT_LANGUAGE;
   const code = String(raw).toLowerCase().split(/[-_]/)[0];
   if (LANG_ALIASES[code]) return LANG_ALIASES[code];
   if (LOCALES[code]) return code;
-  return "en";
+  return FALLBACK_LANGUAGE;
 }
 
 class I18n {
@@ -1495,11 +1528,13 @@ class I18n {
     this.listeners = [];
   }
 
-  init(lang) { this.setLanguage(lang || "ru", false); }
+  init(lang) { this.setLanguage(lang || DEFAULT_LANGUAGE, false); }
 
   setLanguage(lang, notify = true) {
     lang = resolveLanguage(lang);
     this.currentLang = lang;
+    // <html lang> — для скринридеров/переносов и чтобы документ не оставался "ru" в EN/TR.
+    try { if (typeof document !== "undefined" && document.documentElement) document.documentElement.lang = lang; } catch (e) {}
     if (notify) for (const cb of this.listeners) cb(lang);
   }
 

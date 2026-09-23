@@ -63,7 +63,7 @@ export class WheelScene extends Phaser.Scene {
       const midA = (startA + endA) / 2;
       const tx = Math.cos(midA) * (r * 0.6);
       const ty = Math.sin(midA) * (r * 0.6);
-      const txt = this.add.text(tx, ty, sector.label, {
+      const txt = this.add.text(tx, ty, sector.labelKey ? t(sector.labelKey) : sector.label, {
         fontFamily: "Arial", fontSize: "13px", color: "#ffffff", fontStyle: "bold",
         stroke: "#000000", strokeThickness: 3,
       }).setOrigin(0.5);

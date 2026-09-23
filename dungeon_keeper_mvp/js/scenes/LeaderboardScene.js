@@ -64,7 +64,7 @@ export class LeaderboardScene extends Phaser.Scene {
     const result = await SDK.getLeaderboard(LEADERBOARD_NAME, 10);
 
     if (result.source === "local") {
-      this.statusText.setText("Локальный рекорд на этом устройстве");
+      this.statusText.setText(t("lb_source_local"));
       this.statusText.setColor("#ffaa88");
     } else {
       this.statusText.setText(t("lb_source_yandex"));
@@ -72,6 +72,13 @@ export class LeaderboardScene extends Phaser.Scene {
     }
 
     this.renderEntries(result.entries, result.player);
+  }
+
+  /** Имя строки таблицы: имя с платформы, иначе локализованный гость («Keeper 1234»), иначе «Игрок». */
+  entryName(e, fallbackKey = "lb_player_default") {
+    if (e?.name) return e.name;
+    if (Number.isFinite(e?.guestNo)) return t("lb_guest_name", e.guestNo);
+    return t(fallbackKey);
   }
 
   renderEntries(entries, player) {
@@ -111,7 +118,7 @@ export class LeaderboardScene extends Phaser.Scene {
       }).setOrigin(0.5);
       this.entriesContainer.add(rank);
 
-      const name = this.add.text(cx - w / 2 + 70, y + rowH / 2, e.name || t("lb_player_default"), {
+      const name = this.add.text(cx - w / 2 + 70, y + rowH / 2, this.entryName(e), {
         fontFamily: "Arial", fontSize: "16px",
         color: isMe ? "#7effa7" : "#ffffff", fontStyle: "bold",
       }).setOrigin(0, 0.5);
@@ -145,7 +152,7 @@ export class LeaderboardScene extends Phaser.Scene {
       const rank = this.add.text(cx - w / 2 + 30, y + rowH / 2, `#${player.rank}`, {
         fontFamily: "Arial", fontSize: "16px", color: "#7effa7", fontStyle: "bold",
       }).setOrigin(0.5);
-      const name = this.add.text(cx - w / 2 + 70, y + rowH / 2, player.name || t("lb_you"), {
+      const name = this.add.text(cx - w / 2 + 70, y + rowH / 2, this.entryName(player, "lb_you"), {
         fontFamily: "Arial", fontSize: "16px", color: "#7effa7", fontStyle: "bold",
       }).setOrigin(0, 0.5);
       const score = this.add.text(cx + w / 2 - 15, y + rowH / 2, t("lb_wave", player.score), {

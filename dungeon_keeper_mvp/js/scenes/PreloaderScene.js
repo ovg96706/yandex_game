@@ -1,4 +1,5 @@
 import { SDK } from "../sdk.js";
+import { t } from "../i18n.js";
 
 export class PreloaderScene extends Phaser.Scene {
   constructor() {
@@ -8,8 +9,10 @@ export class PreloaderScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor("#161625");
 
+    // Язык к этому моменту уже определён в BootScene — текст обязан быть локализован,
+    // иначе на EN/TR-моке модерации здесь всплывёт русская надпись (п. 2.14 / 8.2.3).
     this.add
-      .text(270, 380, "Загрузка подземелья", {
+      .text(270, 380, t("boot_loading"), {
         fontFamily: "Arial",
         fontSize: "30px",
         color: "#ffffff",

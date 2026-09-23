@@ -1100,7 +1100,7 @@ export class GameScene extends Phaser.Scene {
 
     const color = isCrit ? "#ffff00" : "#ff8f8f";
     const size = isCrit ? 18 : 15;
-    const prefix = isCrit ? "КРИТ! " : "";
+    const prefix = isCrit ? `${t("game_crit")} ` : "";
     floatText(this,
       hero.container.x + Phaser.Math.Between(-8, 8),
       hero.container.y - 28,
