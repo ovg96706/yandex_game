@@ -44,24 +44,35 @@ export class BootScene extends Phaser.Scene {
   }
 
   async initApp() {
-    await SDK.init();
-
-    // Шаг 1 — язык платформы (environment.i18n.lang) применяем немедленно,
-    // не дожидаясь облачного сейва: это и есть «автоопределение на старте».
-    const platformLang = SDK.getLanguage();
-    i18n.init(platformLang);
-    this.applyLocale();
-
-    // Шаг 2 — сейв. Явный выбор игрока в настройках имеет приоритет над платформой.
-    await saveManager.load();
-    const savedLang = saveManager.data.settings?.language;
-    if (savedLang && savedLang !== i18n.getLanguage()) {
-      i18n.setLanguage(savedLang, false);
-      this.applyLocale();
+    // Любая ошибка инициализации не должна оставлять игрока на чёрном экране:
+    // играем в локальном режиме (сейв — localStorage, язык — браузер).
+    try {
+      await SDK.init();
+    } catch (e) {
+      console.warn("SDK.init failed, continuing offline:", e);
     }
 
-    // Применить аудио настройки
-    audio.applySettings(saveManager.data.settings);
+    try {
+      // Шаг 1 — язык платформы (environment.i18n.lang) применяем немедленно,
+      // не дожидаясь облачного сейва: это и есть «автоопределение на старте».
+      const platformLang = SDK.getLanguage();
+      i18n.init(platformLang);
+      this.applyLocale();
+
+      // Шаг 2 — сейв. Явный выбор игрока в настройках имеет приоритет над платформой.
+      await saveManager.load();
+      const savedLang = saveManager.data.settings?.language;
+      if (savedLang && savedLang !== i18n.getLanguage()) {
+        i18n.setLanguage(savedLang, false);
+        this.applyLocale();
+      }
+
+      // Применить аудио настройки
+      audio.applySettings(saveManager.data.settings);
+    } catch (e) {
+      console.error("Boot failed, starting with defaults:", e);
+      try { i18n.init(null); } catch (e2) {}
+    }
 
     this.scene.start("PreloaderScene");
   }

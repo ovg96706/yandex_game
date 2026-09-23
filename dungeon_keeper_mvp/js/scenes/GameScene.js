@@ -26,7 +26,14 @@ import { showAchievementToast } from "../achievementToast.js";
 import { t } from "../i18n.js";
 
 export class GameScene extends Phaser.Scene {
-  constructor() { super("GameScene"); }
+  /**
+   * Ключ сцены ОБЯЗАТЕЛЬНО принимается параметром: EndlessScene наследуется от
+   * GameScene, а конструктор без параметров игнорирует аргумент super("EndlessScene")
+   * (A.prototype.constructor вызывается без аргументов) — обе сцены получали ключ
+   * "GameScene", Phaser падал с "Cannot add a Scene with duplicate key" ещё до
+   * регистрации сцен, и в браузере оставался только чёрный экран.
+   */
+  constructor(key = "GameScene") { super(key); }
 
   /** mode: "story" (кампания) | "endless" (Бездна — отдельный забег). */
   init(data) { this.gameMode = data?.mode === "endless" ? "endless" : "story"; }
